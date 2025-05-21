@@ -5,12 +5,12 @@
             "name": "C++ Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/helloworld.exe",  // Path to your compiled .exe
+            "program": "${workspaceFolder}/index.exe", 
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": true,   // Optional: Run in an external console
+            "externalConsole": true,   
             "MIMode": "gdb",
             "setupCommands": [
                 {
@@ -19,8 +19,8 @@
                     "ignoreFailures": true
                 }
             ],
-            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",  // Path to your GDB executable
-            "preLaunchTask": "Build C++",   // Refer to your tasks.json build task
+            "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",  
+            "preLaunchTask": "Build C++",   
             "miDebuggerArgs": "",
             "logging": {
                 "engineLogging": false

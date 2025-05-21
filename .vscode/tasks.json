@@ -4,12 +4,12 @@
         {
             "label": "Build C++",
             "type": "shell",
-            "command": "g++",
+            "command": "C:/msys64/mingw64/bin/g++.exe",
             "args": [
                 "-g",
                 "-o",
-                "helloworld.exe",
-                "helloworld.cpp"
+                "index.exe",
+                "index.cpp"
             ],
             "group": "build",
             "problemMatcher": [
