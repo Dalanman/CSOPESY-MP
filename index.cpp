@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <windows.h>
+#include <ConsoleManager.h>
 
 using namespace std;
 
