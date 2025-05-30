@@ -6,11 +6,11 @@ using namespace std;
 
 void clearScreen()
 {
-    cout << "\033[2J\033[1;1H";
+    system("cls");
 }
 
 void printHeader()
-{
+{   
     cout << R"(                               
         ___ ___  ___  _ __   ___  ___ _   _ 
        / __/ __|/ _ \| '_ \ / _ \/ __| | | |
