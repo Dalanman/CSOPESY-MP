@@ -85,6 +85,8 @@ void ConsoleManager::printHeader() {
 }
 
 void ConsoleManager::initialize() {
+    pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
+    
 }
 
 bool ConsoleManager::handleCommand(const string& input){
@@ -107,7 +109,7 @@ bool ConsoleManager::handleCommand(const string& input){
         if (input == "initialize")
         {
             cout << "'Initialize' command recognized. Doing something.";
-            pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
+            this->initialize();
             cout << "\nEnter a command: ";
         }
         else if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {

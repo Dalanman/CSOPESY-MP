@@ -1,8 +1,8 @@
 #include "CPUWorker.hpp"
 #include "process.hpp"
 
-CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc)
-    : id(id), process(proc) {}
+CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc, int cores)
+    : id(id), process(proc), CPU(cores) {}
 
 void CPUWorker::runWorker()
 {
