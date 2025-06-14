@@ -10,11 +10,10 @@ class ProcessManager {
     std::vector<std::shared_ptr<Process>> process;
     void makeDummies(int num, int instructions, string text);
     void addProcess();
+    void UpdateProcessScreen();
     private:
     int cores;
 };
-
-
 
 void ProcessManager::makeDummies(int num, int instructions, string text) {
     int processNum = num;
@@ -32,6 +31,34 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
         process.emplace_back(std::make_shared<Process>(name, i, assignedCore, numLines));
         for (int j = 0; j < numLines; j++){
             process[i]->addCommand(output);
+        }
+    }
+}
+
+void ProcessManager::UpdateProcessScreen() {
+    std::cout << "----------------------------------" << std::endl;
+    std::cout << "Running processes: " << std::endl;
+
+    for (const auto& p : process) {
+        if (p->getStatus() == 2) {
+            std::cout << p->getProcessName() << "\t"
+                      << p->getCreationTimestamp() << "\t"
+                      << "Core: " << p->getCoreIndex() << "\t"
+                      << p->getCommandIndex() << "/"
+                      << p->getTotalCommands() << std::endl;
+        }
+    }
+
+    std::cout << "----------------------------------" << std::endl;
+    std::cout << "Finished processes: " << std::endl;
+
+    for (const auto& p : process) {
+        if (p->getStatus() == 3) {
+            std::cout << p->getProcessName() << "\t"
+                      << p->getCreationTimestamp() << "\t"
+                      << "Finished\t"
+                      << p->getTotalCommands() << "/"
+                      << p->getTotalCommands() << std::endl;
         }
     }
 }

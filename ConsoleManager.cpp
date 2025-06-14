@@ -143,6 +143,11 @@ bool ConsoleManager::handleCommand(const string& input){
             cout << "'scheduler-stop' command recognized. Doing something.";
             cout << "\nEnter a command: ";
         }
+        else if (input == "scheduler-start")
+        { 
+            ScheduleManager scheduler(ScheduleType::FCFS, pm, 4);
+            // I think dito papasok 'yung FCFS assignment ng processes
+        }
         else if (input == "report-util")
         {
             cout << "'report-util' command recognized. Doing something.";
@@ -157,6 +162,10 @@ bool ConsoleManager::handleCommand(const string& input){
         {
             cout << "'exit' command recognized. Exiting program.\n";
             return false;
+        }
+        else if (input == "screen -ls") 
+        {
+            pm.UpdateProcessScreen();
         }
         else
         {
