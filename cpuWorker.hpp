@@ -22,5 +22,5 @@ private:
     inline static std::condition_variable turnCV;
     inline static int turn = 0;
 
-    inline static const int DELAY = 100;
+    inline static const int DELAY = 500;
 };

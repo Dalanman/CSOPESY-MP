@@ -5,7 +5,7 @@
 #include <sstream>
 #include <windows.h>
 #include "Colors.h"
-
+#include <fstream>
 using namespace std;
 
 void clearScreen()
@@ -60,7 +60,7 @@ std::string getCurrentTimeFormatted() {
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager() : pm(4) {
+ConsoleManager::ConsoleManager() : pm(4), sm(ScheduleType::FCFS, pm, 4) {
     
 }
 
@@ -86,7 +86,11 @@ void ConsoleManager::printHeader() {
 
 void ConsoleManager::initialize() {
     pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
-    
+    sm.setPM(pm);
+}
+
+void readConfig(){
+
 }
 
 bool ConsoleManager::handleCommand(const string& input){

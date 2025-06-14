@@ -4,6 +4,10 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
+#include <ctime>
+#include <sstream>
+#include <iomanip>
 
 using namespace std;
 
@@ -11,7 +15,7 @@ class Process
 {
 public:
     // Constructor
-    Process(const std::string& name, int id, int assignedCore, int totalInstructions);
+    Process(const std::string &name, int id, int assignedCore, int totalInstructions);
 
     enum Status
     {
@@ -26,10 +30,11 @@ public:
     void processSMI();
     void getNextCommand();
     void execute();
-    void setTimestamp();
+    void setRunTimeStamp();
     void setCoreIndex(int core) { coreIndex = core; }
     void setStatus(Status newStatus) { status = newStatus; }
-
+    void setArrivalTime();
+    void addCommand(string text);
     // Getters
     string getProcessName() const { return processName; }
     int getProcessId() const { return processId; }
@@ -38,17 +43,18 @@ public:
     size_t getTotalCommands() const { return commands.size(); }
     int getCommandIndex() const { return commandIndex; }
     int getCoreIndex() const { return coreIndex; }
-    string getCreationTimestamp() const { return creationTimestamp; }
-    string getRunTimestamp() const { return runTimestamp; }
+    string getCreationTimestamp() const { return creationTimeStamp; }
+    string getRunTimestamp() const { return runTimeStamp; }
 
 private:
     Status status;
     string processName;
     int processId;
     vector<string> commands; // List of commands
+    int numCommands; //number of instructions
     int commandIndex;        // Current executed command
-    string creationTimestamp;
-    string runTimestamp;
+    string creationTimeStamp;
+    string runTimeStamp;
     bool isActive;
     int coreIndex; // index of core assigned to process
 };

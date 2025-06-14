@@ -1,6 +1,8 @@
 #include "scheduleManager.hpp"
 #include "process.hpp"
-#include "memory"
+#include <memory>
+#include "processManager.hpp"
+
 ScheduleManager::ScheduleManager(ScheduleType scheduleType, ProcessManager &pm, int cores)
     : type(scheduleType), manager(pm), cpuCores(cores) {}
 
@@ -21,6 +23,10 @@ void ScheduleManager::startSchedule()
     }
 }
 
+void ScheduleManager::setPM(ProcessManager& pm)
+{
+    manager = pm;
+}
 void ScheduleManager::joinAll()
 {
     for (auto &t : threads)

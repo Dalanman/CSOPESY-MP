@@ -16,7 +16,7 @@ public:
     ScheduleManager(ScheduleType scheduleType, ProcessManager& pm, int cores);
     void startSchedule();
     void joinAll();
-
+    void setPM(ProcessManager& manager);
 private:
     ScheduleType type;
     ProcessManager& manager;

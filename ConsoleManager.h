@@ -7,12 +7,14 @@
 #include <vector>
 #include <queue>
 #include "processManager.hpp"
+#include "scheduleManager.hpp"
 class ConsoleManager {
 private:
 
     bool inSession = false;
     bool initialized = false;
     ProcessManager pm;
+    ScheduleManager sm;
 public:
     ConsoleManager();
     ~ConsoleManager();
@@ -20,9 +22,10 @@ public:
     void printHeader();
 
     void initialize();
+    void readConfig();
     bool isInSession();
     bool handleCommand(const std::string& command);
-
+    
 
 };
 
