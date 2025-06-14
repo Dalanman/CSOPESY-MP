@@ -60,7 +60,8 @@ std::string getCurrentTimeFormatted() {
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager() {
+ConsoleManager::ConsoleManager() : pm(4) {
+    
 }
 
 ConsoleManager::~ConsoleManager() {
@@ -87,7 +88,7 @@ void ConsoleManager::initialize() {
 }
 
 bool ConsoleManager::handleCommand(const string& input){
-
+    
     // handles 'exit' if inside "process view" session
     if (inSession) {
         if (input == "exit") {
@@ -106,6 +107,7 @@ bool ConsoleManager::handleCommand(const string& input){
         if (input == "initialize")
         {
             cout << "'Initialize' command recognized. Doing something.";
+            pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
             cout << "\nEnter a command: ";
         }
         else if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {

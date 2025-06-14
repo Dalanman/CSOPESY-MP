@@ -6,13 +6,13 @@
 #include <string>
 #include <vector>
 #include <queue>
-
+#include "processManager.hpp"
 class ConsoleManager {
 private:
 
     bool inSession = false;
     bool initialized = false;
-
+    ProcessManager pm;
 public:
     ConsoleManager();
     ~ConsoleManager();
