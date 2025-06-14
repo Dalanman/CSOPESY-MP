@@ -1,23 +1,26 @@
 #pragma once
+
 #include <vector>
 #include <thread>
+#include <memory>
 #include "CPUWorker.hpp"
+#include "processManager.hpp"
 
-namespace scheduleManager {
-    enum class ScheduleType { FCFS, RR };
+enum class ScheduleType {
+    FCFS,
+    RR
+};
 
-    // Scheduler Configuration
-    inline ScheduleType currentSchedule = ScheduleType::FCFS;
-    inline int numCores = 4;
-    inline int turnsPerCore = 1000;
-
-    // CPUWorkers and Threads
-    inline std::vector<std::unique_ptr<CPUWorker>> workers;
-    inline std::vector<std::thread> threads;
-
-    // Function declarations
-    void initScheduler(ScheduleType type, int nTurns);
-    void startScheduler();
+class ScheduleManager {
+public:
+    ScheduleManager(ScheduleType scheduleType, ProcessManager& pm, int cores);
+    void startSchedule();
     void joinAll();
-    void reset();
-}
+
+private:
+    ScheduleType type;
+    ProcessManager& manager;
+    int cpuCores;
+    std::vector<std::unique_ptr<CPUWorker>> workers;
+    std::vector<std::thread> threads;
+};

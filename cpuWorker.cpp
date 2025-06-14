@@ -1,35 +1,22 @@
 #include "CPUWorker.hpp"
+#include "process.hpp"
 
-CPUWorker::CPUWorker(int type, int i, int numTurns, ProcessManager& pm)
-    : runType(type), id(i), nTurns(numTurns), manager(pm) {}
+CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc)
+    : id(id), process(proc) {}
 
-void CPUWorker::runWorker() {
-    running = true;
+void CPUWorker::runWorker()
+{
+    while (!process->isDone())
+    {
+        std::unique_lock<std::mutex> lock(executionMutex);
+        turnCV.wait(lock, [this]
+                    { return turn == id; });
 
-    if (runType == 0) {
-        runFCFS();
-    } else if (runType == 1) {
-        runRR(); // Not implemented yet
-    }
-}
-
-void CPUWorker::runFCFS() {
-    int localCounter = 1;
-
-    while (localCounter <= nTurns) {
-        std::unique_lock<std::mutex> lock(turnMutex);
-        turnCV.wait(lock, [this] { return turn == id; });
-        
-        std::cout << "CPUWorker " << id << ": " << localCounter << std::endl;
+        std::cout << "Core: " << id << " executing process " << process->getID() << "...\n";
+        process->print();
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY));
 
-        localCounter++;
-        turn = (turn % CPU) + 1;
+        turn = (turn + 1) % CPU;
         turnCV.notify_all();
     }
-}
-
-
-void CPUWorker::runRR() {
-    // Round Robin not implemented yet
 }
