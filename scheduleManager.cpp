@@ -1,24 +1,31 @@
 #include "scheduleManager.hpp"
-
-ScheduleManager::ScheduleManager(ScheduleType scheduleType, ProcessManager& pm, int cores)
+#include "process.hpp"
+#include "memory"
+ScheduleManager::ScheduleManager(ScheduleType scheduleType, ProcessManager &pm, int cores)
     : type(scheduleType), manager(pm), cpuCores(cores) {}
 
-void ScheduleManager::startSchedule() {
+void ScheduleManager::startSchedule()
+{
     workers.clear();
     threads.clear();
-    Process pr;
-    for (int i = 0; i < 4; ++i) {
-        pr = manager.process[i];
-        workers.emplace_back(std::make_unique<CPUWorker>(i, pr));
+    string name;
+    int id, core, turns;
+    for (int i = 0; i < 4; ++i)
+    {
+        workers.emplace_back(std::make_unique<CPUWorker>(i, manager.process[i]));
     }
 
-    for (auto& worker : workers) {
+    for (auto &worker : workers)
+    {
         threads.emplace_back(&CPUWorker::runWorker, worker.get());
     }
 }
 
-void ScheduleManager::joinAll() {
-    for (auto& t : threads) {
-        if (t.joinable()) t.join();
+void ScheduleManager::joinAll()
+{
+    for (auto &t : threads)
+    {
+        if (t.joinable())
+            t.join();
     }
 }
