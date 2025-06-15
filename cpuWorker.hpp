@@ -16,6 +16,8 @@ public:
     bool hasProcess() const;
     int getId() const;
     void runWorker();
+    void stop();
+    static void stopAllWorkers();
 
     static std::mutex executionMutex;
     static std::condition_variable turnCV;
@@ -26,4 +28,5 @@ private:
     int CPU;
     std::shared_ptr<Process> process;
     int DELAY = 500;
+    static std::atomic<bool> stopFlag;
 };

@@ -60,7 +60,7 @@ std::string getCurrentTimeFormatted() {
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager(){
+ConsoleManager::ConsoleManager() : pm(4) {
     
 }
 
@@ -166,12 +166,12 @@ bool ConsoleManager::handleCommand(const string& input){
         }
         else if (input == "scheduler-stop")
         {
-            cout << "'scheduler-stop' command recognized. Doing something.";
+            pm.cancelAll();
             cout << "\nEnter a command: ";
         }
         else if (input == "scheduler-start")
         { 
-            ProcessManager pm(4);
+
             pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
             pm.executeFCFS();
             

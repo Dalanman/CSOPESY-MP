@@ -1,8 +1,9 @@
 #include "CPUWorker.hpp"
 #include "process.hpp"
 
-
-int CPUWorker::turn = 0;
+//values on initialization
+int CPUWorker::turn = 0; 
+std::atomic<bool> CPUWorker::stopFlag{false};
 
 CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc, int cores)
     : id(id), process(proc), CPU(cores) {}
@@ -18,8 +19,27 @@ bool CPUWorker::hasProcess() const {
 int CPUWorker::getId() const {
     return id;
 }
+
+void CPUWorker::stopAllWorkers() {
+    stopFlag.store(true);
+    turnCV.notify_all();  // Wake all threads
+}
+
+void CPUWorker::stop() {
+    stopFlag.store(true);
+    turnCV.notify_all();
+}
+
 void CPUWorker::runWorker() {
     while (true) {
+
+        if (stopFlag.load()) {
+            if (process && process->getStatus() != FINISHED) {
+                process->setStatus(CANCELLED);
+            }
+            break;
+        }
+
         if (process && process->getStatus() == RUNNING) {
             std::unique_lock<std::mutex> lock(executionMutex);
             turnCV.wait(lock, [this] { return turn == id; });

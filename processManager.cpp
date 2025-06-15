@@ -119,3 +119,22 @@ void ProcessManager::executeFCFS() {
         if (t.joinable()) t.join();
     }
 }
+
+void ProcessManager::cancelAll() {
+    
+    CPUWorker::stopAllWorkers();
+
+    
+    for (auto& p : process) {
+        if (p->getStatus() != FINISHED) {
+            p->setStatus(CANCELLED);
+        }
+    }
+
+    
+    for (auto& t : threads) {
+        if (t.joinable()) t.join();
+    }
+
+    std::cout << "All workers have been stopped and unfinished processes are CANCELLED.\n";
+}

@@ -14,6 +14,7 @@ public:
     bool allProcessesDone();
 
     void executeFCFS();
+    void cancelAll();
 
 private:
     int cores;
