@@ -23,7 +23,7 @@ public:
     void initialize();
     void readConfig();
     bool isInSession();
-    void listAllProcess();
+    //void listAllProcess();
     bool handleCommand(const std::string& command);
     
 

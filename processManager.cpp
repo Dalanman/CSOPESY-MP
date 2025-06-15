@@ -6,6 +6,8 @@
 #include <iostream>
 #include "cpuWorker.hpp"
 #include <unordered_set>
+#include <algorithm>
+#include "CPUWorker.hpp"
 
 ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 

@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <thread>
+#include "CPUWorker.hpp"
 
 class ProcessManager {
 public:
