@@ -1,6 +1,10 @@
 #include "CPUWorker.hpp"
 #include "process.hpp"
 
+std::mutex CPUWorker::executionMutex;
+std::condition_variable CPUWorker::turnCV;
+int CPUWorker::turn;
+
 CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc, int cores)
     : id(id), process(proc), CPU(cores) {}
 

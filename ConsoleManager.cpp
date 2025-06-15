@@ -93,6 +93,38 @@ void readConfig(){
 
 }
 
+void ConsoleManager::listAllProcess() {
+    // std::cout << "test" << std::endl;
+    std::cout << "----------------------------------" << std::endl;
+    std::cout << "Running processes: " << std::endl;
+
+    for (const auto& p : process) {
+        if (p->getStatus() == 2) {
+            std::cout << p->getProcessName() << "\t"
+                << p->getCreationTimestamp() << "\t"
+                << "Core: " << p->getCoreIndex() << "\t"
+                << p->getCommandIndex() << "/"
+                << p->getTotalCommands() << std::endl;
+        }
+    }
+
+    std::cout << "----------------------------------" << std::endl;
+    std::cout << "Finished processes: " << std::endl;
+
+    for (const auto& p : process) {
+        if (p->getStatus() == 3) {
+            std::cout << p->getProcessName() << "\t"
+                << p->getCreationTimestamp() << "\t"
+                << "Finished\t"
+                << p->getTotalCommands() << "/"
+                << p->getTotalCommands() << std::endl;
+        }
+        else {
+
+        }
+    }
+}
+
 bool ConsoleManager::handleCommand(const string& input){
     
     // handles 'exit' if inside "process view" session
@@ -165,7 +197,9 @@ bool ConsoleManager::handleCommand(const string& input){
         }
         else if (input == "screen -ls") 
         {
-            pm.UpdateProcessScreen();
+            // pm.UpdateProcessScreen();
+            listAllProcess();
+            cout << "\nEnter a command: ";
         }
         else
         {

@@ -10,7 +10,7 @@
 #include "scheduleManager.hpp"
 class ConsoleManager {
 private:
-
+    std::vector<std::shared_ptr<Process>> process;
     bool inSession = false;
     bool initialized = false;
     ProcessManager pm;
@@ -24,6 +24,7 @@ public:
     void initialize();
     void readConfig();
     bool isInSession();
+    void listAllProcess();
     bool handleCommand(const std::string& command);
     
 
