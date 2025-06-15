@@ -17,6 +17,8 @@ public:
     void startSchedule();
     void joinAll();
     void setPM(ProcessManager& manager);
+    void executeFCFS();
+    void executeRR();
 private:
     ScheduleType type;
     ProcessManager& manager;

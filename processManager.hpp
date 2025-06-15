@@ -1,18 +1,23 @@
 #pragma once
 #include "process.hpp"
 #include <vector>
-#include <string.h>
+#include <string>
 #include <memory>
+
 class ProcessManager {
+public:
+    ProcessManager(int numCores) : cores(numCores) {};
 
-    public:
-        ProcessManager(int numCores) : cores(numCores) {};
-        std::vector<std::shared_ptr<Process>> process;
-        void makeDummies(int num, int instructions, string text);
-        void addProcess();
-        void UpdateProcessScreen();
+    void makeDummies(int num, int instructions, std::string text);
+    void addProcess(std::shared_ptr<Process> p);
+    void UpdateProcessScreen();
+    bool allProcessesDone();
 
-    private:
-        int cores;
+    void executeFCFS();
+
+private:
+    int cores;
+    std::vector<std::shared_ptr<Process>> process;
+    std::vector<std::unique_ptr<CPUWorker>> workers;
+    std::vector<std::thread> threads;
 };
-

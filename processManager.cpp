@@ -4,6 +4,8 @@
 #include <string.h>
 #include <memory>
 #include <iostream>
+#include "cpuWorker.hpp"
+#include <unordered_set>
 
 ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
@@ -20,10 +22,11 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
             name = "screen_" + std::to_string(i);
         }
         assignedCore = i % this->cores;
-        process.emplace_back(std::make_shared<Process>(name, i, assignedCore, numLines));
+        auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
         for (int j = 0; j < numLines; j++){
             process[i]->addCommand(output);
         }
+        addProcess(proc);
     }
 }
 
@@ -47,7 +50,7 @@ void ProcessManager::UpdateProcessScreen() {
     for (const auto& p : process) {
         if (p->getStatus() == 3) {
             std::cout << p->getProcessName() << "\t"
-                      << p->getCreationTimestamp() << "\t"
+                      << p->getArrivalTimestamp() << "\t"
                       << "Finished\t"
                       << p->getTotalCommands() << "/"
                       << p->getTotalCommands() << std::endl;
@@ -55,6 +58,64 @@ void ProcessManager::UpdateProcessScreen() {
     }
 }
 
-void addProcess(){
-    
+void ProcessManager::addProcess(std::shared_ptr<Process> p) {
+    p->setCreationTime(std::chrono::system_clock::now());
+    Status state = READY;
+    p->setStatus(state);
+    process.push_back(p);
+}
+
+bool ProcessManager::allProcessesDone() {
+    for (const auto& p : process) {
+        if (p->getStatus() != FINISHED && p->getStatus() != CANCELLED)
+            return false;
+    }
+    return true;
+}
+
+void ProcessManager::executeFCFS() {
+    workers.clear();
+    threads.clear();
+
+    std::unordered_set<int> assignedProcessIds;
+
+    for (int i = 0; i < cores; ++i) {
+        workers.emplace_back(std::make_unique<CPUWorker>(i, nullptr, cores));
+    }
+
+    for (auto& worker : workers) {
+        threads.emplace_back(&CPUWorker::runWorker, worker.get());
+    }
+
+    while (!allProcessesDone()) {
+        std::vector<std::shared_ptr<Process>> readyQueue;
+
+        for (auto& p : process) {
+            if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId())) {
+                readyQueue.push_back(p);
+            }
+        }
+
+        std::sort(readyQueue.begin(), readyQueue.end(), [](auto& a, auto& b) {
+            return a->getCreationTimestamp() < b->getCreationTimestamp();
+        });
+
+        for (auto& p : readyQueue) {
+            for (auto& worker : workers) {
+                if (!worker->hasProcess()) {
+                    p->setStatus(RUNNING);
+                    p->setCoreIndex(worker->getId());
+                    worker->assignProcess(p);
+                    assignedProcessIds.insert(p->getProcessId());
+                    break;
+                }
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    for (auto& t : threads) {
+        if (t.joinable()) t.join();
+    }
 }

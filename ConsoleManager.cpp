@@ -60,7 +60,7 @@ std::string getCurrentTimeFormatted() {
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager() : pm(4), sm(ScheduleType::FCFS, pm, 4) {
+ConsoleManager::ConsoleManager(){
     
 }
 
@@ -85,8 +85,7 @@ void ConsoleManager::printHeader() {
 }
 
 void ConsoleManager::initialize() {
-    pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
-    sm.setPM(pm);
+    
 }
 
 void readConfig(){
@@ -165,11 +164,6 @@ bool ConsoleManager::handleCommand(const string& input){
                 cout << "\nEnter a command: ";
             }
         }
-        else if (input == "scheduler-test")
-        {
-            cout << "'scheduler-test' command recognized. Doing something.";
-            cout << "\nEnter a command: ";
-        }
         else if (input == "scheduler-stop")
         {
             cout << "'scheduler-stop' command recognized. Doing something.";
@@ -177,7 +171,10 @@ bool ConsoleManager::handleCommand(const string& input){
         }
         else if (input == "scheduler-start")
         { 
-            ScheduleManager scheduler(ScheduleType::FCFS, pm, 4);
+            ProcessManager pm(4);
+            pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
+            pm.executeFCFS();
+            
             // I think dito papasok 'yung FCFS assignment ng processes
         }
         else if (input == "report-util")

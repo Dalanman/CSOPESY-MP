@@ -13,8 +13,7 @@ private:
     std::vector<std::shared_ptr<Process>> process;
     bool inSession = false;
     bool initialized = false;
-    ProcessManager pm;
-    ScheduleManager sm;
+
 public:
     ConsoleManager();
     ~ConsoleManager();

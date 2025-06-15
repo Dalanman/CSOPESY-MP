@@ -45,7 +45,7 @@ void Process::setArrivalTime()
         << std::setfill('0') << std::setw(2) << localTime.tm_sec
         << ampm;
 
-    creationTimeStamp = oss.str();
+    arrivalTimeStamp = oss.str();
 }
 
 void Process::setRunTimeStamp()
@@ -80,29 +80,31 @@ void Process::setRunTimeStamp()
 }
 void Process::execute()
 {
-    int lineCounter = 0;
-    setArrivalTime();
+    if (status == READY) {
+        setArrivalTime();
+        Status state = RUNNING;
+        setStatus(state);
+    }
 
-    std::string filename = processName + ".txt";
-    std::ofstream outFile(filename, std::ios::app);
+    if (commandIndex >= commands.size()) {
+        // Already finished
+        return;
+    }
 
-    if (!outFile.is_open())
-    {
+    string filename = processName + ".txt";
+    ofstream outFile(filename, std::ios::app);
+
+    if (!outFile.is_open()) {
         std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
         return;
     }
 
-    outFile << "\nLogs:\n";
+    outFile << "(" << creationTimeStamp << ")\t"
+            << "Core: " << coreIndex << " " << commands[commandIndex] << "\n";
 
-    for (const std::string &cmd : commands)
-    {
-        outFile << "(" << creationTimeStamp << ")\t"
-                << "Core: " << coreIndex << " " << cmd << "\n";
-        lineCounter++;
-        commandIndex = lineCounter;
-    }
-    if (lineCounter == commands.size() - 1)
-    {
+    commandIndex++;
+
+    if (commandIndex == commands.size()) {
         Status state = FINISHED;
         setStatus(state);
         setRunTimeStamp();

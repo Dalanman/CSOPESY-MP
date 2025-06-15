@@ -11,19 +11,22 @@
 
 using namespace std;
 
+enum Status
+    {
+        WAITING,
+        READY,
+        RUNNING,
+        FINISHED,
+        CANCELLED
+    };
+
 class Process
 {
 public:
     // Constructor
     Process(const std::string &name, int id, int assignedCore, int totalInstructions);
 
-    enum Status
-    {
-        WAITING,
-        READY,
-        RUNNING,
-        FINISHED
-    };
+    
 
     // Public methods
     void displayDetails() const;
@@ -35,6 +38,7 @@ public:
     void setStatus(Status newStatus) { status = newStatus; }
     void setArrivalTime();
     void addCommand(string text);
+    void setCreationTime(std::chrono::time_point<std::chrono::system_clock> creationTime) { creationTimeStamp = creationTime; }
     // Getters
     string getProcessName() const { return processName; }
     int getProcessId() const { return processId; }
@@ -43,8 +47,9 @@ public:
     size_t getTotalCommands() const { return commands.size(); }
     int getCommandIndex() const { return commandIndex; }
     int getCoreIndex() const { return coreIndex; }
-    string getCreationTimestamp() const { return creationTimeStamp; }
+    std::chrono::time_point<std::chrono::system_clock> getCreationTimestamp() const { return creationTimeStamp; }
     string getRunTimestamp() const { return runTimeStamp; }
+    string getArrivalTimestamp() const { return arrivalTimeStamp;}
 
 private:
     Status status;
@@ -53,7 +58,8 @@ private:
     vector<string> commands; // List of commands
     int numCommands; //number of instructions
     int commandIndex;        // Current executed command
-    string creationTimeStamp;
+    std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
+    string arrivalTimeStamp;
     string runTimeStamp;
     bool isActive;
     int coreIndex; // index of core assigned to process
