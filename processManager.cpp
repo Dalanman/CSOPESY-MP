@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "process.hpp"
 #include "processManager.hpp"
 #include <vector>
@@ -9,7 +11,7 @@
 #include <algorithm>
 #include "CPUWorker.hpp"
 
-ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
+// ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
 void ProcessManager::makeDummies(int num, int instructions, string text) {
     int processNum = num;
@@ -18,6 +20,7 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
     std::string name;
     int assignedCore;
     for (int i = 0; i < processNum; i++){
+		cout << "Creating dummy process... " << i << std::endl;
         if (i < 10){
             name = "screen_0" + std::to_string(i);
         } else {
@@ -25,10 +28,11 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
         }
         assignedCore = i % this->cores;
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+        addProcess(proc);
         for (int j = 0; j < numLines; j++){
+            cout << "Adding line " << j << " to " << name << "..." << std::endl;
             process[i]->addCommand(output);
         }
-        addProcess(proc);
     }
 }
 
@@ -60,8 +64,22 @@ void ProcessManager::UpdateProcessScreen() {
     }
 }
 
+std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::system_clock>& timePoint) {
+    // Convert time_point to std::time_t
+    std::time_t time = std::chrono::system_clock::to_time_t(timePoint);
+
+    // Convert to tm struct for formatting
+    std::tm* tm_time = std::localtime(&time);
+
+    // Format the time into a string
+    std::ostringstream oss;
+    oss << std::put_time(tm_time, "%Y-%m-%d %H:%M:%S");
+
+    return oss.str();
+}
+
 void ProcessManager::addProcess(std::shared_ptr<Process> p) {
-    p->setCreationTime(std::chrono::system_clock::now());
+    p->setCreationTime(toString(std::chrono::system_clock::now()));
     Status state = READY;
     p->setStatus(state);
     process.push_back(p);
@@ -79,6 +97,7 @@ void ProcessManager::executeFCFS() {
     workers.clear();
     threads.clear();
 
+	cout << "Executing processes using FCFS scheduling..." << std::endl;
     std::unordered_set<int> assignedProcessIds;
 
     for (int i = 0; i < cores; ++i) {
@@ -90,9 +109,11 @@ void ProcessManager::executeFCFS() {
     }
 
     while (!allProcessesDone()) {
+		cout << "Checking for processes to assign..." << std::endl;
         std::vector<std::shared_ptr<Process>> readyQueue;
 
         for (auto& p : process) {
+			cout << "Checking process: " << p->getProcessName() << std::endl;
             if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId())) {
                 readyQueue.push_back(p);
             }
@@ -103,6 +124,7 @@ void ProcessManager::executeFCFS() {
         });
 
         for (auto& p : readyQueue) {
+			cout << "Assigning process: " << p->getProcessName() << std::endl;
             for (auto& worker : workers) {
                 if (!worker->hasProcess()) {
                     p->setStatus(RUNNING);
@@ -118,8 +140,16 @@ void ProcessManager::executeFCFS() {
     }
 
     for (auto& t : threads) {
-        if (t.joinable()) t.join();
+		cout << "Joining thread..." << std::endl;
+		cout << t.joinable() << std::endl;
+        if (t.joinable()) {
+            t.join();
+			cout << "Thread joined." << std::endl;
+        }
     }
+
+	cout << "All processes have been executed using FCFS scheduling." << std::endl;
+    return;
 }
 
 void ProcessManager::cancelAll() {

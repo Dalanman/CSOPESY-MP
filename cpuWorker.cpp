@@ -2,6 +2,9 @@
 #include "process.hpp"
 
 //values on initialization
+std::mutex CPUWorker::executionMutex;
+std::condition_variable CPUWorker::turnCV;
+
 int CPUWorker::turn = 0; 
 std::atomic<bool> CPUWorker::stopFlag{false};
 
@@ -31,7 +34,11 @@ void CPUWorker::stop() {
 }
 
 void CPUWorker::runWorker() {
-    while (true) {
+    while (!CPUWorker::stopFlag) {
+
+        if (stopFlag) {
+            break;
+        }
 
         if (stopFlag.load()) {
             if (process && process->getStatus() != FINISHED) {
@@ -45,12 +52,14 @@ void CPUWorker::runWorker() {
             turnCV.wait(lock, [this] { return turn == id; });
 
             process->execute();
+			cout << "CPU Worker " << id << " is executing process " << endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(DELAY));
 
-            process = nullptr;
             process->setStatus(FINISHED);
+            process = nullptr;
             turn = (turn + 1) % CPU;
             turnCV.notify_all();
+
         }
 
     }

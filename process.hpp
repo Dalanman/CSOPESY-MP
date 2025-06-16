@@ -38,7 +38,8 @@ public:
     void setStatus(Status newStatus) { status = newStatus; }
     void setArrivalTime();
     void addCommand(string text);
-    void setCreationTime(std::chrono::time_point<std::chrono::system_clock> creationTime) { creationTimeStamp = creationTime; }
+    // void setCreationTime(std::chrono::time_point<std::chrono::system_clock> creationTime) { creationTimeStamp = creationTime; }
+    void setCreationTime(string creationTime) { creationTimeStamp = creationTime; }
     // Getters
     string getProcessName() const { return processName; }
     int getProcessId() const { return processId; }
@@ -47,7 +48,8 @@ public:
     size_t getTotalCommands() const { return commands.size(); }
     int getCommandIndex() const { return commandIndex; }
     int getCoreIndex() const { return coreIndex; }
-    std::chrono::time_point<std::chrono::system_clock> getCreationTimestamp() const { return creationTimeStamp; }
+    // std::chrono::time_point<std::chrono::system_clock> getCreationTimestamp() const { return creationTimeStamp; }
+    string getCreationTimestamp() const { return creationTimeStamp; }
     string getRunTimestamp() const { return runTimeStamp; }
     string getArrivalTimestamp() const { return arrivalTimeStamp;}
 
@@ -58,7 +60,8 @@ private:
     vector<string> commands; // List of commands
     int numCommands; //number of instructions
     int commandIndex;        // Current executed command
-    std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
+    // std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
+    string creationTimeStamp;
     string arrivalTimeStamp;
     string runTimeStamp;
     bool isActive;

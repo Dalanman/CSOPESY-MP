@@ -139,9 +139,10 @@ bool ConsoleManager::handleCommand(const string& input){
         }
         else if (input == "scheduler-start")
         { 
-
+            // cout << pm.getCores() << endl;
             pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
             pm.executeFCFS();
+            cout << "\nEnter a command: ";
         }
         else if (input == "report-util")
         {

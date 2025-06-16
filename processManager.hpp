@@ -14,9 +14,10 @@ public:
     void addProcess(std::shared_ptr<Process> p);
     void UpdateProcessScreen();
     bool allProcessesDone();
-
+    std::string toString(const std::chrono::time_point<std::chrono::system_clock>& timePoint);
     void executeFCFS();
     void cancelAll();
+    int getCores() const { return cores; };
 
 private:
     int cores;

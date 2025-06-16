@@ -80,18 +80,9 @@ void Process::setRunTimeStamp()
 }
 void Process::execute()
 {
-    if (status == READY) {
-        setArrivalTime();
-        Status state = RUNNING;
-        setStatus(state);
-    }
-
-    if (commandIndex >= commands.size()) {
-        // Already finished
-        return;
-    }
-
+	commandIndex = 0;
     string filename = processName + ".txt";
+    cout << "Writing to file: " << filename << endl;
     ofstream outFile(filename, std::ios::app);
 
     if (!outFile.is_open()) {
@@ -99,16 +90,33 @@ void Process::execute()
         return;
     }
 
-    outFile << "(" << creationTimeStamp << ")\t"
-            << "Core: " << coreIndex << " " << commands[commandIndex] << "\n";
+    while (commandIndex < commands.size()) {
+        cout << "EXEC: " << processName << endl;
+        if (status == READY) {
+            setArrivalTime();
+            Status state = RUNNING;
+            setStatus(state);
+        }
 
-    commandIndex++;
+        cout << commandIndex << " / " << commands.size() << endl;
+        if (commandIndex >= commands.size()) {
+            cout << "Process " << processName << " has no more commands to execute." << endl;
+            // Already finished
+            return;
+        }
 
-    if (commandIndex == commands.size()) {
-        Status state = FINISHED;
-        setStatus(state);
-        setRunTimeStamp();
-    }
+        outFile << "(" << creationTimeStamp << ")\t"
+            << "Core: " << coreIndex << " " << commands[commandIndex] << " " << processName << "\n";
+        commandIndex++;
+
+        if (commandIndex == commands.size()) {
+            Status state = FINISHED;
+            setStatus(state);
+            setRunTimeStamp();
+        }
+
+        
+	}
 
     outFile.close();
 }
