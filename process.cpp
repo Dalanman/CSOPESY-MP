@@ -82,42 +82,44 @@ void Process::execute()
 {
 	commandIndex = 0;
     string filename = processName + ".txt";
-    cout << "Writing to file: " << filename << endl;
+    // cout << "Writing to file: " << filename << endl;
     ofstream outFile(filename, std::ios::app);
-
+        
     if (!outFile.is_open()) {
         std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
         return;
     }
 
-    while (commandIndex < commands.size()) {
-        cout << "EXEC: " << processName << endl;
+    outFile << "Process name: " << processName << "\n" << "Logs:\n\n";
+
+    while (commandIndex < 100) {
+        //cout << "EXEC: " << processName << endl;
         if (status == READY) {
             setArrivalTime();
             Status state = RUNNING;
             setStatus(state);
         }
 
-        cout << commandIndex << " / " << commands.size() << endl;
+        //cout << commandIndex << " / " << commands.size() << endl;
         if (commandIndex >= commands.size()) {
-            cout << "Process " << processName << " has no more commands to execute." << endl;
-            // Already finished
+            // cout << "Process " << processName << " has no more commands to execute." << endl;
+
             return;
         }
-
-        outFile << "(" << creationTimeStamp << ")\t"
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        outFile << "(" << arrivalTimeStamp << ") "
             << "Core: " << coreIndex << " " << commands[commandIndex] << " " << processName << "\n";
-        commandIndex++;
 
-        if (commandIndex == commands.size()) {
+        if (commandIndex == 100) {
             Status state = FINISHED;
             setStatus(state);
             setRunTimeStamp();
         }
 
-        
+        commandIndex++;
 	}
 
     outFile.close();
+
 }
 

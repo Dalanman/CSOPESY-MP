@@ -52,8 +52,8 @@ void CPUWorker::runWorker() {
             turnCV.wait(lock, [this] { return turn == id; });
 
             process->execute();
-			cout << "CPU Worker " << id << " is executing process " << endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(DELAY));
+			//cout << "CPU Worker " << id << " is executing process " << endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 
             process->setStatus(FINISHED);
             process = nullptr;

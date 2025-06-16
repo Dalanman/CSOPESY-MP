@@ -8,8 +8,7 @@
 #include <iostream>
 #include "cpuWorker.hpp"
 #include <unordered_set>
-#include <algorithm>
-#include "CPUWorker.hpp"
+#include <algorithm>  
 
 // ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
@@ -20,7 +19,7 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
     std::string name;
     int assignedCore;
     for (int i = 0; i < processNum; i++){
-		cout << "Creating dummy process... " << i << std::endl;
+		//cout << "Creating dummy process... " << i << std::endl;
         if (i < 10){
             name = "screen_0" + std::to_string(i);
         } else {
@@ -30,7 +29,7 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
         addProcess(proc);
         for (int j = 0; j < numLines; j++){
-            cout << "Adding line " << j << " to " << name << "..." << std::endl;
+            //cout << "Adding line " << j << " to " << name << "..." << std::endl;
             process[i]->addCommand(output);
         }
     }
@@ -43,7 +42,7 @@ void ProcessManager::UpdateProcessScreen() {
     for (const auto& p : process) {
         if (p->getStatus() == 2) {
             std::cout << p->getProcessName() << "\t"
-                      << p->getCreationTimestamp() << "\t"
+                      << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
                       << p->getCommandIndex() << "/"
                       << p->getTotalCommands() << std::endl;
@@ -97,7 +96,7 @@ void ProcessManager::executeFCFS() {
     workers.clear();
     threads.clear();
 
-	cout << "Executing processes using FCFS scheduling..." << std::endl;
+	//cout << "Executing processes using FCFS scheduling..." << std::endl;
     std::unordered_set<int> assignedProcessIds;
 
     for (int i = 0; i < cores; ++i) {
@@ -109,11 +108,11 @@ void ProcessManager::executeFCFS() {
     }
 
     while (!allProcessesDone()) {
-		cout << "Checking for processes to assign..." << std::endl;
+		//cout << "Checking for processes to assign..." << std::endl;
         std::vector<std::shared_ptr<Process>> readyQueue;
 
         for (auto& p : process) {
-			cout << "Checking process: " << p->getProcessName() << std::endl;
+			//cout << "Checking process: " << p->getProcessName() << std::endl;
             if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId())) {
                 readyQueue.push_back(p);
             }
@@ -124,11 +123,12 @@ void ProcessManager::executeFCFS() {
         });
 
         for (auto& p : readyQueue) {
-			cout << "Assigning process: " << p->getProcessName() << std::endl;
+			//cout << "Assigning process: " << p->getProcessName() << std::endl;
             for (auto& worker : workers) {
                 if (!worker->hasProcess()) {
                     p->setStatus(RUNNING);
                     p->setCoreIndex(worker->getId());
+                    p->setArrivalTime();
                     worker->assignProcess(p);
                     assignedProcessIds.insert(p->getProcessId());
                     break;
@@ -136,9 +136,19 @@ void ProcessManager::executeFCFS() {
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
+    workers[0]->stopAllWorkers();
+
+    //std::cout << "All processes done " << allProcessesDone() << std::endl;
+
+    threads[0].join();
+    threads[1].join();
+    threads[2].join();
+    threads[3].join();
+    //cout << "Thread joined." << std::endl;
+    /*
     for (auto& t : threads) {
 		cout << "Joining thread..." << std::endl;
 		cout << t.joinable() << std::endl;
@@ -147,8 +157,10 @@ void ProcessManager::executeFCFS() {
 			cout << "Thread joined." << std::endl;
         }
     }
+    */
 
 	cout << "All processes have been executed using FCFS scheduling." << std::endl;
+    cout << "Enter a command: ";
     return;
 }
 
