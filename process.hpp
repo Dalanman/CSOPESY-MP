@@ -59,7 +59,7 @@ private:
     int processId;
     vector<string> commands; // List of commands
     int numCommands; //number of instructions
-    int commandIndex;        // Current executed command
+    int commandIndex = 0;        // Current executed command
     // std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
     string creationTimeStamp;
     string arrivalTimeStamp;

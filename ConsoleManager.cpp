@@ -6,6 +6,7 @@
 #include <windows.h>
 #include "Colors.h"
 #include <fstream>
+#include <thread>
 using namespace std;
 
 void clearScreen()
@@ -64,7 +65,35 @@ ConsoleManager::ConsoleManager() : pm(4) {
     
 }
 
+// Moved Scheduler thread here
+void ConsoleManager::startRR(int cpuTick) {
+    if (Scheduler.joinable()) {
+        // std::cout << "Scheduler already running, waiting to stop..." << std::endl;
+        stopTick = true;
+        Scheduler.join(); 
+    }
+
+    stopTick = false;
+    Scheduler = std::thread(&ProcessManager::executeRoundRobin, &pm, cpuTick, std::ref(stopTick));
+}
+
+
+void ConsoleManager::run() {
+    InputHandler = std::thread(&ConsoleManager::inputLoop, this);
+}
+
+void ConsoleManager::inputLoop() {
+    printHeader();
+    std::string input;
+    while (!stopInput) {
+        std::getline(std::cin, input);
+        if (!handleCommand(input)) break;
+    }
+}
+
 ConsoleManager::~ConsoleManager() {
+    if (InputHandler.joinable()) InputHandler.join();
+    if (Scheduler.joinable()) Scheduler.join();
 }
 
 bool ConsoleManager::isInSession() {
@@ -93,7 +122,7 @@ void readConfig(){
 }
 
 bool ConsoleManager::handleCommand(const string& input){
-    
+
     // handles 'exit' if inside "process view" session
     if (inSession) {
         if (input == "exit") {
@@ -141,9 +170,10 @@ bool ConsoleManager::handleCommand(const string& input){
         { 
             // cout << pm.getCores() << endl;
             pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
-            pm.executeFCFS();
+            if (Scheduler.joinable()) Scheduler.join(); // Wait if already running
+                Scheduler = std::thread(&ProcessManager::executeFCFS, &pm);
             cout << "\nEnter a command: ";
-        }
+        }       
         else if (input == "report-util")
         {
             cout << "'report-util' command recognized. Doing something.";
@@ -157,10 +187,13 @@ bool ConsoleManager::handleCommand(const string& input){
         else if (input == "exit")
         {
             cout << "'exit' command recognized. Exiting program.\n";
+            if (Scheduler.joinable()) Scheduler.join();
+                stopInput = true;
             return false;
         }
         else if (input == "screen -ls") 
         {
+            clearScreen();
             pm.UpdateProcessScreen();
             cout << "\nEnter a command: ";
         }
