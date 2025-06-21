@@ -1,4 +1,5 @@
 #include "ConsoleManager.h"
+#include "ConfigReader.hpp"
 #include <iostream>
 #include <ctime>
 #include <iomanip>
@@ -101,7 +102,8 @@ void ConsoleManager::printHeader() {
 }
 
 void ConsoleManager::initialize() {
-    
+    configReader = new ConfigReader();
+    initialized = true;
 }
 
 void readConfig(){
@@ -127,7 +129,7 @@ bool ConsoleManager::handleCommand(const string& input){
     else if(!inSession) {
         if (input == "initialize")
         {
-            cout << "'Initialize' command recognized. Doing something.";
+            // cout << "'Initialize' command recognized. Doing something.";
             this->initialize();
             cout << "\nEnter a command: ";
         }

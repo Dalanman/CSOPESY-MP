@@ -7,6 +7,7 @@
 #include <vector>
 #include <queue>
 #include "processManager.hpp"
+#include "ConfigReader.hpp"
 class ConsoleManager {
 private:
     std::vector<std::shared_ptr<Process>> process;
@@ -16,6 +17,7 @@ private:
     ProcessManager pm;
     std::thread Scheduler;
     std::thread InputHandler;
+    ConfigReader* configReader;
 
 public:
     ConsoleManager();
@@ -27,7 +29,7 @@ public:
     void initialize();
     void readConfig();
     bool isInSession();
-    //void listAllProcess();
+    ConfigReader* getConfig() const { return configReader; }
     bool handleCommand(const std::string& command);
     
 
