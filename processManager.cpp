@@ -38,11 +38,13 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
 }
 
 void ProcessManager::UpdateProcessScreen() {
+
+
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
     for (const auto& p : process) {
-        if (p->getStatus() == 2) {
+        if (p->getStatus() == 2 || p->getStatus() == 1 || p->getStatus() == 0) {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
@@ -167,8 +169,11 @@ void ProcessManager::executeFCFS() {
 }
 
 void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag) {
+    std::cout << "\n" << "Executing Round Robin" << std::endl;
+
     std::queue<std::shared_ptr<Process>> readyQueue;
 
+    
     while (!allProcessesDone() && !stopFlag) {
         for (auto& p : process) {
             if (p->getStatus() == READY) {
@@ -189,7 +194,7 @@ void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag) {
                    std::chrono::steady_clock::now() - start).count() < cpuTick) 
             {  
 
-                //p->executeStep(); // Idk how pa 
+                p->executeStep(); 
                 if (p->getStatus() == FINISHED) break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -202,10 +207,10 @@ void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); // simulate tick wait
     }
 
+
+
     std::cout << "Round Robin finished." << std::endl;
 }
-
-
 
 void ProcessManager::cancelAll() {
     

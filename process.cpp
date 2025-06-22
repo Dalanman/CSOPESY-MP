@@ -123,3 +123,41 @@ void Process::execute()
 
 }
 
+
+void Process::executeStep() {
+    if (status == FINISHED) return;
+
+    if (status == READY) {
+        setArrivalTime();
+        setStatus(RUNNING);
+    }
+
+    if (commandIndex >= commands.size()) {
+        setStatus(FINISHED);
+        setRunTimeStamp();
+        return;
+    }
+
+    std::string filename = processName + ".txt";
+    std::ofstream outFile(filename, std::ios::app);
+    if (!outFile.is_open()) {
+        std::cerr << "Failed to open file for writing: " << filename << std::endl;
+        return;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // run time for each process
+
+    outFile << "(" << arrivalTimeStamp << ") "
+        << "Core: " << coreIndex << " "
+        << commands[commandIndex] << " "
+        << processName << "\n";
+
+    commandIndex++;
+    outFile.close();
+
+    if (commandIndex >= commands.size()) {
+        setStatus(FINISHED);
+        setRunTimeStamp();
+    }
+}
+

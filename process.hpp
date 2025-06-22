@@ -52,6 +52,7 @@ public:
     string getCreationTimestamp() const { return creationTimeStamp; }
     string getRunTimestamp() const { return runTimeStamp; }
     string getArrivalTimestamp() const { return arrivalTimeStamp;}
+    void Process::executeStep();
 
 private:
     Status status;
