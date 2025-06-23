@@ -169,47 +169,54 @@ void ProcessManager::executeFCFS() {
 }
 
 void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag) {
-    std::cout << "\n" << "Executing Round Robin" << std::endl;
+    //std::cout << "\nExecuting Round Robin with " << cores << " cores\n";
 
     std::queue<std::shared_ptr<Process>> readyQueue;
 
-    
-    while (!allProcessesDone() && !stopFlag) {
-        for (auto& p : process) {
-            if (p->getStatus() == READY) {
-                readyQueue.push(p);
-                p->setStatus(WAITING);  
-            }
+    for (auto& p : process) {
+        if (p->getStatus() == READY) {
+            readyQueue.push(p);
         }
-
-        while (!readyQueue.empty() && !stopFlag) {
-            auto p = readyQueue.front(); readyQueue.pop();
-
-            p->setStatus(RUNNING);
-            p->setArrivalTime();
-            auto start = std::chrono::steady_clock::now();
-
-            while (p->getStatus() == RUNNING &&
-                   std::chrono::duration_cast<std::chrono::milliseconds>(
-                   std::chrono::steady_clock::now() - start).count() < cpuTick) 
-            {  
-
-                p->executeStep(); 
-                if (p->getStatus() == FINISHED) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-
-            if (p->getStatus() != FINISHED) {
-                p->setStatus(READY);
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // simulate tick wait
     }
 
+    while (!allProcessesDone() && !stopFlag) {
+        std::vector<std::thread> coreThreads;
 
+        for (int i = 0; i < cores && !readyQueue.empty(); ++i) {
+            auto p = readyQueue.front(); readyQueue.pop();
 
-    std::cout << "Round Robin finished." << std::endl;
+            coreThreads.emplace_back([&, p]() {
+                p->setStatus(RUNNING);
+                p->setArrivalTime();
+
+                auto start = std::chrono::steady_clock::now();
+
+                while (p->getStatus() == RUNNING &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - start).count() < cpuTick) {
+
+                    p->executeStep();
+                    if (p->getStatus() == FINISHED) return;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+
+                if (p->getStatus() != FINISHED) {
+                    p->setStatus(READY);
+                    // Place process back into queue; simulating RR
+                    std::lock_guard<std::mutex> lock(mtx);
+                    readyQueue.push(p);
+                }
+                });
+        }
+
+        for (auto& t : coreThreads) {
+            if (t.joinable()) t.join();
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    //std::cout << "Round Robin finished.\n";
 }
 
 void ProcessManager::cancelAll() {

@@ -123,7 +123,6 @@ void Process::execute()
 
 }
 
-
 void Process::executeStep() {
     if (status == FINISHED) return;
 
@@ -145,12 +144,12 @@ void Process::executeStep() {
         return;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // run time for each process
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // run time for each process
 
     outFile << "(" << arrivalTimeStamp << ") "
-        << "Core: " << coreIndex << " "
-        << commands[commandIndex] << " "
-        << processName << "\n";
+            << "Core: " << coreIndex << " "
+            << commands[commandIndex] << " "
+            << processName << "\n";
 
     commandIndex++;
     outFile.close();

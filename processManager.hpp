@@ -25,4 +25,6 @@ private:
     std::vector<std::shared_ptr<Process>> process;
     std::vector<std::unique_ptr<CPUWorker>> workers;
     std::vector<std::thread> threads;
+    std::mutex mtx;
+
 };
