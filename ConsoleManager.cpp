@@ -66,16 +66,16 @@ ConsoleManager::ConsoleManager() : pm(4) {
 }
 
 // Moved Scheduler thread here
-void ConsoleManager::startRR(int cpuTick) {
+void ConsoleManager::startRR() {
     if (Scheduler.joinable()) {
-        // std::cout << "Scheduler already running, waiting to stop..." << std::endl;
         stopTick = true;
-        Scheduler.join(); 
+        Scheduler.join();  
     }
 
     stopTick = false;
-    Scheduler = std::thread(&ProcessManager::executeRoundRobin, &pm, cpuTick, std::ref(stopTick));
+    Scheduler = std::thread(&ProcessManager::executeRoundRobin, &pm, 1000, std::ref(stopTick), 5);
 }
+
 
 
 void ConsoleManager::run() {
@@ -169,10 +169,7 @@ bool ConsoleManager::handleCommand(const string& input){
         else if (input == "scheduler-start")
         { 
             pm.makeDummies(10, 100, "Hello world from"); // Create dummy processes
-
-            const int quantumCycle = 3; // Temporary?
-
-            startRR(quantumCycle); 
+            startRR(); 
             cout << "\nEnter a command: ";
         }       
         else if (input == "report-util")

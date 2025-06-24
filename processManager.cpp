@@ -168,56 +168,78 @@ void ProcessManager::executeFCFS() {
     return;
 }
 
-void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag) {
-    //std::cout << "\nExecuting Round Robin with " << cores << " cores\n";
-
+void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag, int quantum) {
     std::queue<std::shared_ptr<Process>> readyQueue;
+    std::mutex queueMutex;
 
+    // Initialize ready queue with all READY processes
     for (auto& p : process) {
         if (p->getStatus() == READY) {
             readyQueue.push(p);
         }
     }
 
-    while (!allProcessesDone() && !stopFlag) {
-        std::vector<std::thread> coreThreads;
+    // Launch one thread per core
+    std::vector<std::thread> coreThreads;
+    for (int i = 0; i < cores; ++i) {
+        coreThreads.emplace_back([&, i]() {
+            while (!stopFlag) {
+                std::shared_ptr<Process> p = nullptr;
 
-        for (int i = 0; i < cores && !readyQueue.empty(); ++i) {
-            auto p = readyQueue.front(); readyQueue.pop();
-
-            coreThreads.emplace_back([&, p]() {
-                p->setStatus(RUNNING);
-                p->setArrivalTime();
-
-                auto start = std::chrono::steady_clock::now();
-
-                while (p->getStatus() == RUNNING &&
-                    std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - start).count() < cpuTick) {
-
-                    p->executeStep();
-                    if (p->getStatus() == FINISHED) return;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                // Get next process from ready queue
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    if (!readyQueue.empty()) {
+                        p = readyQueue.front();
+                        readyQueue.pop();
+                    }
                 }
 
-                if (p->getStatus() != FINISHED) {
-                    p->setStatus(READY);
-                    // Place process back into queue; simulating RR
-                    std::lock_guard<std::mutex> lock(mtx);
-                    readyQueue.push(p);
+                // If a process was available, execute it
+                if (p) {
+                    p->setStatus(RUNNING);
+                    p->setArrivalTime();
+
+                    int executedInstructions = 0;
+
+                    // Execute up to 'quantum' instructions
+                    while (executedInstructions < quantum && p->getStatus() == RUNNING) {
+                        p->executeStep(); 
+                        executedInstructions++;
+
+                        if (p->getStatus() == FINISHED) break;
+
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // simulate time delay per instruction
+                    }
+
+                    if (p->getStatus() != FINISHED) {
+                        p->setStatus(READY);
+                        std::lock_guard<std::mutex> lock(queueMutex);
+                        readyQueue.push(p);
+                    }
                 }
-                });
-        }
-
-        for (auto& t : coreThreads) {
-            if (t.joinable()) t.join();
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                else {
+                    // No available process; idle time
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                }
+            }
+            });
     }
 
-    //std::cout << "Round Robin finished.\n";
+    // Update UI 
+    while (!allProcessesDone() && !stopFlag) {
+        UpdateProcessScreen();
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); 
+    }
+
+    stopFlag = true;
+
+    for (auto& t : coreThreads) {
+        if (t.joinable()) t.join();
+    }
 }
+
+
 
 void ProcessManager::cancelAll() {
     

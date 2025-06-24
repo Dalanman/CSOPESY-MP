@@ -18,7 +18,7 @@ public:
     void executeFCFS();
     void cancelAll();
     int getCores() const { return cores; };
-    void executeRoundRobin(int cpuTick, bool& stopFlag);
+    void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag, int quantum);
 
 private:
     int cores;

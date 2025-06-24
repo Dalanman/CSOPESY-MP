@@ -13,7 +13,7 @@ private:
     bool inSession = false;
     bool initialized = false;
     bool stopInput = false;
-    bool stopTick = false;      // for CPU tick implementation, used for Scheduler thread
+    bool stopTick = false;     // for CPU tick implementation, used for Scheduler thread
     ProcessManager pm;
     std::thread Scheduler;
     std::thread InputHandler;
@@ -30,7 +30,7 @@ public:
     bool isInSession();
     //void listAllProcess();
     bool handleCommand(const std::string& command);
-    void ConsoleManager::startRR(int quantumCycle);
+    void ConsoleManager::startRR();
     
 
 };
