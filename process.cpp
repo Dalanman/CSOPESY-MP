@@ -80,46 +80,72 @@ void Process::setRunTimeStamp()
 }
 void Process::execute()
 {
-	commandIndex = 0;
-    string filename = processName + ".txt";
-    // cout << "Writing to file: " << filename << endl;
-    ofstream outFile(filename, std::ios::app);
-        
+    std::string filename = processName + ".txt";
+    std::ofstream outFile(filename, std::ios::app);
+
     if (!outFile.is_open()) {
         std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
         return;
     }
 
-    outFile << "Process name: " << processName << "\n" << "Logs:\n\n";
+    // Initialize on first run
+    if (status == READY) {
+        setArrivalTime();
+        setStatus(RUNNING);
+    }
 
-    while (commandIndex < 100) {
-        //cout << "EXEC: " << processName << endl;
-        if (status == READY) {
-            setArrivalTime();
-            Status state = RUNNING;
-            setStatus(state);
-        }
+    if (commandIndex >= commandList.getTotalCommands()) {
+        setRunTimeStamp();
+        setStatus(FINISHED);
+        return;
+    }
 
-        //cout << commandIndex << " / " << commands.size() << endl;
-        if (commandIndex >= commands.size()) {
-            // cout << "Process " << processName << " has no more commands to execute." << endl;
+    std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
 
+    
+    if (currentCommand->type == FOR) {
+        auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
+        if (forCmd) {
+            auto expanded = forCmd->unrollBody();
+
+            
+            commandList.removeCommandAt(commandIndex);  // assume this exists
+            commandList.insertCommandsAt(commandIndex, expanded);  // assume this exists
+
+            
+            outFile.close();
             return;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        outFile << "(" << arrivalTimeStamp << ") "
-            << "Core: " << coreIndex << " " << commands[commandIndex] << " " << processName << "\n";
+    }
 
-        if (commandIndex == 100) {
-            Status state = FINISHED;
-            setStatus(state);
-            setRunTimeStamp();
-        }
+    
+    outFile << "(" << arrivalTimeStamp << ") "
+            << "Core: " << coreIndex << " "
+            << currentCommand->toString() << " "
+            << processName << "\n";
 
-        commandIndex++;
-	}
+    
+    switch (currentCommand->type) {
+        case PRINT:
+            currentCommand->printExecute(outFile);
+            break;
+        case IO:
+            currentCommand->IOExecute();
+            break;
+        default:
+            break;
+    }
+
+    commandIndex++;
+
+
+    if (commandIndex >= commandList.getTotalCommands()) {
+        setRunTimeStamp();
+        setStatus(FINISHED);
+    }
 
     outFile.close();
-
 }
+
+
 
