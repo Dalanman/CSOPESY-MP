@@ -8,7 +8,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
-
+#include "commandList.hpp"
 using namespace std;
 
 enum Status
@@ -58,6 +58,8 @@ private:
     string processName;
     int processId;
     vector<string> commands; // List of commands
+    CommandList commandList;
+    vector<string> logs;
     int numCommands; //number of instructions
     int commandIndex = 0;        // Current executed command
     // std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
