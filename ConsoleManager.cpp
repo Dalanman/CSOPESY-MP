@@ -1,4 +1,5 @@
 #include "ConsoleManager.h"
+#include "ConfigReader.hpp"
 #include <iostream>
 #include <ctime>
 #include <iomanip>
@@ -62,21 +63,8 @@ std::string getCurrentTimeFormatted() {
 }
 
 ConsoleManager::ConsoleManager() : pm(4) {
-    
+  
 }
-
-// Moved Scheduler thread here
-void ConsoleManager::startRR() {
-    if (Scheduler.joinable()) {
-        stopTick = true;
-        Scheduler.join();  
-    }
-
-    stopTick = false;
-    Scheduler = std::thread(&ProcessManager::executeRoundRobin, &pm, 1000, std::ref(stopTick), 5);
-}
-
-
 
 void ConsoleManager::run() {
     InputHandler = std::thread(&ConsoleManager::inputLoop, this);
@@ -114,7 +102,15 @@ void ConsoleManager::printHeader() {
 }
 
 void ConsoleManager::initialize() {
-    
+    configReader = new ConfigReader();
+    initialized = true;
+
+    numCpu = configReader->getNumCpu();
+    quantumCycle = configReader->getQuantum();
+    BPF = configReader->getBPF();
+    DelayPerExec = configReader->getDelayPerExec();
+    MinIns = configReader->getMinIns();
+    MaxIns = configReader->getMaxIns();
 }
 
 void readConfig(){
@@ -138,68 +134,86 @@ bool ConsoleManager::handleCommand(const string& input){
         }
     }
     else if(!inSession) {
-        if (input == "initialize")
-        {
-            cout << "'Initialize' command recognized. Doing something.";
-            this->initialize();
-            cout << "\nEnter a command: ";
-        }
-        else if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {
-
-            if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
-                // if no "process" name
-                clearScreen();
-                cout << RED << "> Error: Missing process name for 'screen -r' command." << RESET << endl;
+        if (!initialized){
+            if (input == "initialize")
+            {
+                // cout << "'Initialize' command recognized. Doing something.";
+                this->initialize();
+                cout << "Emulator initialized successfully." << endl;
+                cout << "\nEnter a command: ";
             }
-            else {
-                string processName = input.substr(10);
-                clearScreen();
-                cout << YELLOW << "Process name: " + processName << RESET << endl;
-                cout << "Current line: 100/100" << endl;
-                cout << getCurrentTimeFormatted() << endl;
-                inSession = true;
+            else if (input == "exit"){
+                cout << "'exit' command recognized. Exiting program.\n";
+                if (Scheduler.joinable()) Scheduler.join();
+                stopInput = true;
+                return false;
+            }
+            else{
+                cout << RED << "> Error: Emulator not initialized. Please run 'initialize' command first." << RESET << endl;
                 cout << "\nEnter a command: ";
             }
         }
-        else if (input == "scheduler-stop")
-        {
-            pm.cancelAll();
-            cout << "\nEnter a command: ";
+        else{
+            if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {
+
+                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
+                    // if no "process" name
+                    clearScreen();
+                    cout << RED << "> Error: Missing process name for 'screen -r' command." << RESET << endl;
+                }
+                else {
+                    string processName = input.substr(10);
+                    clearScreen();
+                    cout << YELLOW << "Process name: " + processName << RESET << endl;
+                    cout << "Current line: 100/100" << endl;
+                    cout << getCurrentTimeFormatted() << endl;
+                    inSession = true;
+                    cout << "\nEnter a command: ";
+                }
+            } 
+            else if (input == "scheduler-stop")
+            {
+                pm.cancelAll();
+                cout << "\nEnter a command: ";
+            }
+            else if (input == "scheduler-start")
+            { 
+                // cout << pm.getCores() << endl;
+                pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
+                if (Scheduler.joinable()) Scheduler.join(); // Wait if already running
+                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, 1000, quantumCycle, DelayPerExec);
+                cout << "\nEnter a command: ";
+            }       
+            else if (input == "report-util")
+            {
+                cout << "'report-util' command recognized. Doing something.";
+                cout << "\nEnter a command: ";
+            }
+            else if (input == "clear")
+            {
+                clearScreen();
+                printHeader();
+            }
+            else if (input == "exit")
+            {
+                cout << "'exit' command recognized. Exiting program.\n";
+                if (Scheduler.joinable()) Scheduler.join();
+                    stopInput = true;
+                return false;
+            }
+            else if (input == "screen -ls") 
+            {
+                clearScreen();
+                pm.UpdateProcessScreen();
+                cout << "\nEnter a command: ";
+            }
+            else
+            {
+                cout << RED << "Unknown command: " << input << RESET << endl;
+                cout << "\nEnter a command: ";
+            }
         }
-        else if (input == "scheduler-start")
-        { 
-            pm.makeDummies(10, 100, "Hello world from"); // Create dummy processes
-            startRR(); 
-            cout << "\nEnter a command: ";
-        }       
-        else if (input == "report-util")
-        {
-            cout << "'report-util' command recognized. Doing something.";
-            cout << "\nEnter a command: ";
-        }
-        else if (input == "clear")
-        {
-            clearScreen();
-            printHeader();
-        }
-        else if (input == "exit")
-        {
-            cout << "'exit' command recognized. Exiting program.\n";
-            if (Scheduler.joinable()) Scheduler.join();
-                stopInput = true;
-            return false;
-        }
-        else if (input == "screen -ls") 
-        {
-            clearScreen();
-            pm.UpdateProcessScreen();
-            cout << "\nEnter a command: ";
-        }
-        else
-        {
-            cout << RED << "Unknown command: " << input << RESET << endl;
-            cout << "\nEnter a command: ";
-        }
+        
     }
 
     else {

@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <thread>
+#include <queue>
 #include "CPUWorker.hpp"
 
 class ProcessManager {
@@ -18,13 +19,15 @@ public:
     void executeFCFS();
     void cancelAll();
     int getCores() const { return cores; };
-    void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag, int quantum);
+    void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
 
 private:
     int cores;
     std::vector<std::shared_ptr<Process>> process;
     std::vector<std::unique_ptr<CPUWorker>> workers;
     std::vector<std::thread> threads;
-    std::mutex mtx;
 
+    std::vector<std::thread> coreThreads; 
+    std::queue<Process*> readyQueue;
+    std::mutex readyQueueMutex;
 };

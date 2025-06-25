@@ -9,8 +9,6 @@
 #include "cpuWorker.hpp"
 #include <unordered_set>
 #include <algorithm>  
-#include <queue>
-
 
 // ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
@@ -38,13 +36,11 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
 }
 
 void ProcessManager::UpdateProcessScreen() {
-
-
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
     for (const auto& p : process) {
-        if (p->getStatus() == 2 || p->getStatus() == 1 || p->getStatus() == 0) {
+        if (p->getStatus() == 2) {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
@@ -168,76 +164,61 @@ void ProcessManager::executeFCFS() {
     return;
 }
 
-void ProcessManager::executeRoundRobin(int cpuTick, bool& stopFlag, int quantum) {
-    std::queue<std::shared_ptr<Process>> readyQueue;
-    std::mutex queueMutex;
+void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec) {
+    // Resize based on cpu count
+    coreThreads.resize(numCpu);
 
-    // Initialize ready queue with all READY processes
-    for (auto& p : process) {
-        if (p->getStatus() == READY) {
-            readyQueue.push(p);
-        }
-    }
+    for (int i = 0; i < numCpu; ++i) {
+        coreThreads[i] = std::thread([&, i]() {
+            while (!allProcessesDone()) {
+                Process* currentProcess = nullptr;
 
-    // Launch one thread per core
-    std::vector<std::thread> coreThreads;
-    for (int i = 0; i < cores; ++i) {
-        coreThreads.emplace_back([&, i]() {
-            while (!stopFlag) {
-                std::shared_ptr<Process> p = nullptr;
-
-                // Get next process from ready queue
+                // Get process from queue
                 {
-                    std::lock_guard<std::mutex> lock(queueMutex);
+                    std::lock_guard<std::mutex> lock(readyQueueMutex);
                     if (!readyQueue.empty()) {
-                        p = readyQueue.front();
+                        currentProcess = readyQueue.front();
                         readyQueue.pop();
                     }
                 }
 
-                // If a process was available, execute it
-                if (p) {
-                    p->setStatus(RUNNING);
-                    p->setArrivalTime();
+                if (currentProcess) {
+                    int executed = 0;
 
-                    int executedInstructions = 0;
-
-                    // Execute up to 'quantum' instructions
-                    while (executedInstructions < quantum && p->getStatus() == RUNNING) {
-                        p->executeStep(); 
-                        executedInstructions++;
-
-                        if (p->getStatus() == FINISHED) break;
-
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // simulate time delay per instruction
+                    // Execute up to quantum instructions or until finished
+                    while (executed < quantumCycle && !currentProcess->getStatus() == 3) {
+                        currentProcess->execute(); // 1 instruction
+                        std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
+                        executed++;
                     }
 
-                    if (p->getStatus() != FINISHED) {
-                        p->setStatus(READY);
-                        std::lock_guard<std::mutex> lock(queueMutex);
-                        readyQueue.push(p);
+                    // Requeue
+                    if (!currentProcess->getStatus() == 3) {
+                        std::lock_guard<std::mutex> lock(readyQueueMutex);
+                        readyQueue.push(currentProcess);
                     }
                 }
                 else {
-                    // No available process; idle time
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    // Idle time if no processes in queue
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
                 }
             }
             });
     }
 
-    // Update UI 
-    while (!allProcessesDone() && !stopFlag) {
+    // UI updater 
+    while (!allProcessesDone()) {
         UpdateProcessScreen();
-        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); 
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 
-    stopFlag = true;
-
+    // Wait for all threads to complete
     for (auto& t : coreThreads) {
         if (t.joinable()) t.join();
     }
 }
+
+
 
 
 

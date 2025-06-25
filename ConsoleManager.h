@@ -7,16 +7,25 @@
 #include <vector>
 #include <queue>
 #include "processManager.hpp"
+#include "ConfigReader.hpp"
 class ConsoleManager {
 private:
     std::vector<std::shared_ptr<Process>> process;
     bool inSession = false;
     bool initialized = false;
     bool stopInput = false;
-    bool stopTick = false;     // for CPU tick implementation, used for Scheduler thread
     ProcessManager pm;
     std::thread Scheduler;
     std::thread InputHandler;
+    ConfigReader* configReader;
+    // SymbolTable symbolTable;
+
+    int numCpu;
+    int quantumCycle;
+    int BPF;
+    int DelayPerExec;
+    int MinIns;
+    int MaxIns;
 
 public:
     ConsoleManager();
@@ -28,9 +37,8 @@ public:
     void initialize();
     void readConfig();
     bool isInSession();
-    //void listAllProcess();
+    ConfigReader* getConfig() const { return configReader; }
     bool handleCommand(const std::string& command);
-    void ConsoleManager::startRR();
     
 
 };

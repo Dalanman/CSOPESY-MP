@@ -78,85 +78,75 @@ void Process::setRunTimeStamp()
 
     runTimeStamp = oss.str();
 }
+
+
+
 void Process::execute()
 {
-	commandIndex = 0;
-    string filename = processName + ".txt";
-    // cout << "Writing to file: " << filename << endl;
-    ofstream outFile(filename, std::ios::app);
-        
+    std::string filename = processName + ".txt";
+    std::ofstream outFile(filename, std::ios::app);
+
     if (!outFile.is_open()) {
         std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
         return;
     }
 
-    outFile << "Process name: " << processName << "\n" << "Logs:\n\n";
-
-    while (commandIndex < 100) {
-        //cout << "EXEC: " << processName << endl;
-        if (status == READY) {
-            setArrivalTime();
-            Status state = RUNNING;
-            setStatus(state);
-        }
-
-        //cout << commandIndex << " / " << commands.size() << endl;
-        if (commandIndex >= commands.size()) {
-            // cout << "Process " << processName << " has no more commands to execute." << endl;
-
-            return;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        outFile << "(" << arrivalTimeStamp << ") "
-            << "Core: " << coreIndex << " " << commands[commandIndex] << " " << processName << "\n";
-
-        if (commandIndex == 100) {
-            Status state = FINISHED;
-            setStatus(state);
-            setRunTimeStamp();
-        }
-
-        commandIndex++;
-	}
-
-    outFile.close();
-
-}
-
-void Process::executeStep() {
-    if (status == FINISHED) return;
-
+    // Initialize on first run
     if (status == READY) {
         setArrivalTime();
         setStatus(RUNNING);
     }
 
-    if (commandIndex >= commands.size()) {
-        setStatus(FINISHED);
+    if (commandIndex >= commandList.getTotalCommands()) {
         setRunTimeStamp();
+        setStatus(FINISHED);
         return;
     }
 
-    std::string filename = processName + ".txt";
-    std::ofstream outFile(filename, std::ios::app);
-    if (!outFile.is_open()) {
-        std::cerr << "Failed to open file for writing: " << filename << std::endl;
-        return;
+    std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
+
+    
+    if (currentCommand->type == FOR) {
+        auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
+        if (forCmd) {
+            auto expanded = forCmd->unrollBody();
+
+            
+            commandList.removeCommandAt(commandIndex);  // assume this exists
+            commandList.insertCommandsAt(commandIndex, expanded);  // assume this exists
+
+            
+            outFile.close();
+            return;
+        }
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // run time for each process
-
+    
     outFile << "(" << arrivalTimeStamp << ") "
             << "Core: " << coreIndex << " "
-            << commands[commandIndex] << " "
+            << currentCommand->toString() << " "
             << processName << "\n";
 
-    commandIndex++;
-    outFile.close();
-
-    if (commandIndex >= commands.size()) {
-        setStatus(FINISHED);
-        setRunTimeStamp();
+    
+    switch (currentCommand->type) {
+        case PRINT:
+            currentCommand->printExecute(outFile);
+            break;
+        case IO:
+            currentCommand->IOExecute();
+            break;
+        default:
+            break;
     }
+
+    commandIndex++;
+
+
+    if (commandIndex >= commandList.getTotalCommands()) {
+        setRunTimeStamp();
+        setStatus(FINISHED);
+    }
+
+    outFile.close();
 }
 
