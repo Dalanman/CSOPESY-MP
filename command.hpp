@@ -10,9 +10,9 @@ extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
 
 enum CommandType
 {
-    IO,
-    PRINT,
-    FOR
+    IO,    // ADD, SUBTRACT, DECLARE, SLEEP
+    PRINT, // PRINT
+    FOR    // FOR LOOP
 };
 
 class Command
@@ -46,37 +46,98 @@ public:
     {
         return "PRINT \"" + message + "\"";
     }
+
+    static std::string randomCommand()
+    {
+        static std::vector<std::string> samples = {
+            "PRINT(Hello World)",
+            "PRINT(Value is correct)",
+            "PRINT(Looping...)",
+            "PRINT(Execution done)",
+            "PRINT(Error occurred)"};
+        return samples[rand() % samples.size()];
+    }
 };
 
 class IOCommand : public Command
 {
-    std::string lhsVar, rhsVar, resultVar;
-    std::string operation; // e.g., "ADD", "SUB", etc.
+    std::string operation; // e.g., "ADD", "SUBTRACT", "DECLARE", "SLEEP"
+    std::string lhsVar;    // For target variable or sleep duration
+    std::string rhsVar;    // First operand (or value for DECLARE)
+    std::string extraVar;  // Second operand for ADD/SUBTRACT
+
+    uint16_t rhsValue = 0;  // Used for DECLARE
+    uint8_t sleepTicks = 0; // Used for SLEEP
+    bool isSleeping = false;
 
 public:
-    IOCommand(const std::string &op, const std::string &lhs, const std::string &rhs, const std::string &res)
-        : Command(IO), lhsVar(lhs), rhsVar(rhs), resultVar(res), operation(op) {}
+    IOCommand(const std::string &op, const std::string &lhs = "", const std::string &rhs = "", const std::string &extra = "", uint16_t value = 0)
+        : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {}
 
     void IOExecute() override
     {
-        int lhs = symbolTable[lhsVar];
-        int rhs = symbolTable[rhsVar];
+        if (operation == "DECLARE")
+        {
+            // Declare variable with default value if not present
+            if (symbolTable.find(lhsVar) == symbolTable.end())
+            {
+                symbolTable[lhsVar] = rhsValue;
+            }
+        }
+        else if (operation == "ADD" || operation == "SUBTRACT")
+        {
+            // Lazy declare missing variables
+            if (isalpha(rhsVar[0]) && symbolTable.find(rhsVar) == symbolTable.end())
+                symbolTable[rhsVar] = 0;
+            if (isalpha(extraVar[0]) && symbolTable.find(extraVar) == symbolTable.end())
+                symbolTable[extraVar] = 0;
+            if (symbolTable.find(lhsVar) == symbolTable.end())
+                symbolTable[lhsVar] = 0;
 
-        if (operation == "ADD")
-        {
-            symbolTable[resultVar] = lhs + rhs;
+            uint16_t rhsVal = isalpha(rhsVar[0]) ? symbolTable[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
+            uint16_t extraVal = isalpha(extraVar[0]) ? symbolTable[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
+
+            if (operation == "ADD")
+                symbolTable[lhsVar] = rhsVal + extraVal;
+            else
+                symbolTable[lhsVar] = rhsVal - extraVal;
         }
-        else if (operation == "SUB")
+        else if (operation == "SLEEP")
         {
-            symbolTable[resultVar] = lhs - rhs;
+
+            sleepTicks = static_cast<uint8_t>(std::stoi(lhsVar));
+            isSleeping = true;
+            
         }
-        // You can extend to support MUL, DIV, etc.
     }
 
     std::string toString() const override
     {
-        return operation + " " + lhsVar + ", " + rhsVar + ", " + resultVar;
+        if (operation == "DECLARE")
+            return "DECLARE " + lhsVar + ", " + std::to_string(rhsValue);
+        else if (operation == "SLEEP")
+            return "SLEEP " + lhsVar;
+        else
+            return operation + " " + lhsVar + ", " + rhsVar + ", " + extraVar;
     }
+
+    static std::string randomCommand()
+    {
+        static std::vector<std::string> samples = {
+            "DECLARE(x, 100)",
+            "DECLARE(y, 200)",
+            "ADD(z, x, y)",
+            "ADD(total, 50, 25)",
+            "SUBTRACT(diff, x, 20)",
+            "SUBTRACT(balance, y, z)",
+            "SLEEP(5)",
+            "SLEEP(10)"};
+        return samples[rand() % samples.size()];
+    }
+
+    // Getter for sleeping status (for external scheduler)
+    bool sleeping() const { return isSleeping; }
+    uint8_t getSleepTicks() const { return sleepTicks; }
 };
 
 class ForCommand : public Command
@@ -95,14 +156,24 @@ public:
         }
     }
 
+    static std::string randomCommand()
+    {
+        static std::vector<std::string> samples = {
+            "FOR([PRINT(Hello World), PRINT(Execution done)], 2)",
+            "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
+            "FOR([PRINT(Loop Start), SLEEP(2), PRINT(Loop End)], 4)",
+            "FOR([FOR([PRINT(Nested Loop), SLEEP(1)], 2)], 2)",
+            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(b)], 3)"};
+        return samples[rand() % samples.size()];
+    }
     void addCommand(std::shared_ptr<Command> cmd)
     {
+        // If the command is a FOR loop, validate nesting
         if (cmd->type == FOR)
         {
             auto innerFor = std::dynamic_pointer_cast<ForCommand>(cmd);
             if (innerFor)
             {
-                // Enforce nesting limit when adding nested FORs
                 if (nestingDepth + 1 > 3)
                 {
                     throw std::runtime_error("Nesting depth exceeds 3");
@@ -110,6 +181,7 @@ public:
                 innerFor->setNestingDepth(nestingDepth + 1);
             }
         }
+
         body.push_back(cmd);
     }
 
@@ -174,7 +246,7 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(out); // Recursive print
+                    cmd->printExecute(out); // Recursive call for nested FORs
                 }
             }
         }
@@ -197,7 +269,12 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->IOExecute(); // Recursive IO
+                    cmd->IOExecute(); // Recursive call for nested FORs
+                }
+                else if (cmd->type == PRINT)
+                {
+                    std::ofstream dummyOut("/dev/null"); // Optional: discard output
+                    cmd->printExecute(dummyOut);
                 }
             }
         }

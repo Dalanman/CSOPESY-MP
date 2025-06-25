@@ -9,28 +9,37 @@
 #include "cpuWorker.hpp"
 #include <unordered_set>
 #include <algorithm>  
+#include <cstdlib>
 
 // ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
-void ProcessManager::makeDummies(int num, int instructions, string text) {
+void ProcessManager::makeDummies(int num, int instructions, std::string text) {
     int processNum = num;
     int numLines = instructions;
-    string output = text;
     std::string name;
     int assignedCore;
-    for (int i = 0; i < processNum; i++){
-		//cout << "Creating dummy process... " << i << std::endl;
-        if (i < 10){
-            name = "screen_0" + std::to_string(i);
-        } else {
-            name = "screen_" + std::to_string(i);
-        }
-        assignedCore = i % this->cores;
+
+    for (int i = 0; i < processNum; i++) {
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
         addProcess(proc);
-        for (int j = 0; j < numLines; j++){
-            //cout << "Adding line " << j << " to " << name << "..." << std::endl;
-            process[i]->addCommand(output);
+
+        for (int j = 0; j < numLines; j++) {
+            std::string cmdStr;
+            int type = rand() % 3;  // 0: IO, 1: PRINT, 2: FOR
+
+            switch (type) {
+                case 0:
+                    cmdStr = IOCommand::randomCommand();
+                    break;
+                case 1:
+                    cmdStr = PrintCommand::randomCommand();
+                    break;
+                case 2:
+                    cmdStr = ForCommand::randomCommand();
+                    break;
+            }
+
+            proc->addCommand(cmdStr);
         }
     }
 }

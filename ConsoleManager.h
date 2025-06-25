@@ -18,6 +18,7 @@ private:
     std::thread Scheduler;
     std::thread InputHandler;
     ConfigReader* configReader;
+    // SymbolTable symbolTable;
 
 public:
     ConsoleManager();
