@@ -178,10 +178,11 @@ bool ConsoleManager::handleCommand(const string& input){
             }
             else if (input == "scheduler-start")
             { 
-                // cout << pm.getCores() << endl;
-                pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
-                if (Scheduler.joinable()) Scheduler.join(); // Wait if already running
-                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, 1000, quantumCycle, DelayPerExec);
+                // Create dummy processes
+                pm.makeDummies(10, MinIns, MaxIns);
+                if (Scheduler.joinable()) Scheduler.join();
+                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, 500, quantumCycle, DelayPerExec);
+
                 cout << "\nEnter a command: ";
             }       
             else if (input == "report-util")

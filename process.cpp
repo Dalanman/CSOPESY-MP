@@ -3,12 +3,15 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include "commandList.hpp"
 Process::Process(const std::string &name, int id, int assignedCore, int totalInstructions)
+    : processName(name),
+      processId(id),
+      coreIndex(assignedCore),
+      numCommands(totalInstructions),
+      commandList(totalInstructions)
 {
-    this->processName = name;
-    this->processId = id;
-    this->coreIndex = assignedCore;
-    this->numCommands = totalInstructions;
+    
 }
 
 void Process::addCommand(string text){
@@ -79,8 +82,6 @@ void Process::setRunTimeStamp()
     runTimeStamp = oss.str();
 }
 
-
-
 void Process::execute()
 {
     std::string filename = processName + ".txt";
@@ -130,7 +131,7 @@ void Process::execute()
     
     switch (currentCommand->type) {
         case PRINT:
-            currentCommand->printExecute(outFile);
+            currentCommand->printExecute(outFile, &logs);
             break;
         case IO:
             currentCommand->IOExecute();
@@ -149,4 +150,6 @@ void Process::execute()
 
     outFile.close();
 }
+
+
 

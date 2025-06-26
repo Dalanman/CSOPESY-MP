@@ -11,7 +11,7 @@ class ProcessManager {
 public:
     ProcessManager(int numCores) : cores(numCores) {};
 
-    void makeDummies(int num, int instructions, std::string text);
+    void makeDummies(int num, int minIns, int maxIns);
     void addProcess(std::shared_ptr<Process> p);
     void UpdateProcessScreen();
     bool allProcessesDone();
@@ -19,14 +19,17 @@ public:
     void executeFCFS();
     void cancelAll();
     int getCores() const { return cores; };
+
+    void addToReadyQueue(Process* p);
     void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
 
 private:
     int cores;
-    std::vector<std::shared_ptr<Process>> process;
+    std::vector<std::shared_ptr<Process>> process;  // Created processes
     std::vector<std::unique_ptr<CPUWorker>> workers;
     std::vector<std::thread> threads;
 
+    // RR
     std::vector<std::thread> coreThreads; 
     std::queue<Process*> readyQueue;
     std::mutex readyQueueMutex;

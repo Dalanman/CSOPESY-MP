@@ -12,30 +12,50 @@
 
 // ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
 
-void ProcessManager::makeDummies(int num, int instructions, string text) {
+void ProcessManager::makeDummies(int num, int minIns, int maxIns)
+{
     int processNum = num;
-    int numLines = instructions;
-    string output = text;
+    int numLines = rand() % (maxIns - minIns + 1) + minIns;
     std::string name;
     int assignedCore;
 
-    for (int i = 0; i < processNum; i++) {
-        if (i < 10) {
-            name = "screen_0" + std::to_string(i);
-        }
-        else {
-            name = "screen_" + std::to_string(i);
-        }
-        assignedCore = i % this->cores;
+    std::cout << "Test 1" << std::endl;
+    for (int i = 0; i < processNum; i++)
+    {
+        if (i < 10)
+            name = "process0" + std::to_string(i);
+        else
+            name = "process" + std::to_string(i);
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
-        addProcess(proc); 
-        for (int j = 0; j < numLines; j++) {
-            proc->addCommand(output);
+        addProcess(proc);
+
+        std::cout << "Test 2" << std::endl;
+        for (int j = 0; j < numLines; j++)
+        {
+            std::cout << "Test 3" << std::endl;
+            std::string cmdStr;
+            int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
+
+            switch (type)
+            {
+            case 0:
+                cmdStr = IOCommand::randomCommand();
+                break;
+            case 1:
+                cmdStr = "HELLO WORLD FROM " + name; // TODO: MAKE IT DEFAULT TO PRINTING "HELLO WORLD FROM <processName>!"
+                break;
+            case 2:
+                cmdStr = ForCommand::randomCommand();
+                break;
+            }
+
+            proc->addCommand(cmdStr);
         }
+        std::cout << "Test 4" << std::endl;
         addToReadyQueue(proc.get());
     }
 }
-
+        
 
 void ProcessManager::UpdateProcessScreen() {
     std::cout << "----------------------------------" << std::endl;
