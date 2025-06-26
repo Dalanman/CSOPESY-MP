@@ -26,19 +26,44 @@ void CommandList::addCommand(std::string line) {
     
 }
 
+// Helper function to split nested command strings properly
+std::vector<std::string> splitNestedCommands(const std::string& input) {
+    std::vector<std::string> result;
+    std::string current;
+    int parenDepth = 0;
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+        current += c;
+
+        if (c == '(') {
+            parenDepth++;
+        }
+        else if (c == ')') {
+            parenDepth--;
+        }
+
+        if (parenDepth == 0 && (i + 1 == input.size() || input[i + 1] == ',')) {
+            result.push_back(current);
+            current.clear();
+            if (i + 1 < input.size() && input[i + 1] == ',') i++; // skip the comma
+        }
+    }
+
+    return result;
+}
+
 bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
-    totalCommands = inputCommands.size(); // Start with unparsed size
+    totalCommands = inputCommands.size();
 
     for (std::string line : inputCommands) {
-        line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 
-        // PRINT(HELLO WORLD FROM PROCESS)
         if (line.find("PRINT(") == 0 && line.back() == ')') {
             std::string msg = line.substr(6, line.size() - 7);
             commands.push_back(std::make_shared<PrintCommand>(msg));
         }
 
-        // DECLARE(x,100)
         else if (line.find("DECLARE(") == 0 && line.back() == ')') {
             std::string args = line.substr(8, line.size() - 9);
             size_t comma = args.find(',');
@@ -49,25 +74,24 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             commands.push_back(std::make_shared<IOCommand>("DECLARE", var, "", "", std::stoi(val)));
         }
 
-        // ADD(x,y,z) or SUBTRACT(a,b,c)
         else if ((line.find("ADD(") == 0 || line.find("SUBTRACT(") == 0) && line.back() == ')') {
             std::string op = line.substr(0, line.find('('));
             std::string args = line.substr(op.size() + 1, line.size() - op.size() - 2);
+
             std::vector<std::string> parts;
             std::stringstream ss(args);
             std::string part;
             while (std::getline(ss, part, ',')) parts.push_back(part);
             if (parts.size() != 3) return false;
+
             commands.push_back(std::make_shared<IOCommand>(op, parts[0], parts[1], parts[2]));
         }
 
-        // SLEEP(5)
         else if (line.find("SLEEP(") == 0 && line.back() == ')') {
             std::string ticks = line.substr(6, line.size() - 7);
             commands.push_back(std::make_shared<IOCommand>("SLEEP", ticks));
         }
 
-        // FOR([...],N)
         else if (line.find("FOR([") == 0 && line.back() == ')') {
             size_t bodyStart = line.find("[") + 1;
             size_t bodyEnd = line.find("]");
@@ -80,23 +104,12 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             std::string repeatStr = line.substr(commaAfterBody + 1, line.size() - commaAfterBody - 2);
             int repeatCount = std::stoi(repeatStr);
 
-            // Split nested commands by ")," — same assumption: each ends with )
-            std::vector<std::string> nestedCommands;
-            while (true) {
-                size_t endPos = bodyStr.find("),");
-                if (endPos == std::string::npos) break;
-                std::string part = bodyStr.substr(0, endPos + 1);
-                nestedCommands.push_back(part);
-                bodyStr.erase(0, endPos + 2);
-            }
-            if (!bodyStr.empty()) nestedCommands.push_back(bodyStr);
+            std::vector<std::string> nestedCommands = splitNestedCommands(bodyStr);
 
-            // Parse nested commands
             CommandList tempList;
             if (!tempList.parseCommands(nestedCommands)) return false;
 
-            // Adjust totalCommands
-            totalCommands -= 1; // Removing FOR
+            totalCommands -= 1; // account for the FOR command being replaced
             totalCommands += repeatCount * tempList.commands.size();
 
             for (int i = 0; i < repeatCount; ++i) {
@@ -107,7 +120,7 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
         }
 
         else {
-            return false;
+            return false; // Invalid command
         }
     }
 

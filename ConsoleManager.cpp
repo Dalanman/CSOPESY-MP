@@ -200,6 +200,7 @@ bool ConsoleManager::handleCommand(const string& input){
                 cout << "'exit' command recognized. Exiting program.\n";
                 if (Scheduler.joinable()) Scheduler.join();
                     stopInput = true;
+                if (InputHandler.joinable()) InputHandler.join();
                 return false;
             }
             else if (input == "screen -ls") 
