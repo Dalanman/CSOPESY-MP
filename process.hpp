@@ -54,6 +54,7 @@ public:
     string getCreationTimestamp() const { return creationTimeStamp; }
     string getRunTimestamp() const { return runTimeStamp; }
     string getArrivalTimestamp() const { return arrivalTimeStamp;}
+    int getActualCommands() { return commandList.getSize(); }
 
 private:
     Status status;

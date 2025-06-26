@@ -20,8 +20,13 @@ void Process::addCommand(string text){
 
 void Process::parse() {  
     std::cout << "SIZE: " << commands.size() << std::endl;
-    commandList.parseCommands(commands);  
-    std::cout << "ACTUAL SIZE: " << commandList.getTotalCommands() << endl;
+    bool test = commandList.parseCommands(commands);  
+    std::cout << "ACTUAL SIZE: " << commandList.getSize() << endl;
+    std::cout << test << endl;
+ 
+    for (const auto& cmd : commands) {
+        std::cout << "(" << cmd << ")" << std::endl;
+    }
 }
 
 void Process::setArrivalTime()
@@ -111,7 +116,7 @@ void Process::execute()
         return;
     }
 
-	// std::cout << "EXEC COMMAND: " << commandIndex << std::endl;
+	// std::cout << "EXEC COMMAND: " << commandIndex << " CORE INDEX: " << coreIndex << std::endl;
     std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
     
     if (currentCommand->type == FOR) {

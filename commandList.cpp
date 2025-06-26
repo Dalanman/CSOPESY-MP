@@ -27,17 +27,18 @@ void CommandList::addCommand(std::string line) {
 }
 
 bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
+    totalCommands = inputCommands.size(); // Start with unparsed size
+
     for (std::string line : inputCommands) {
-        // Trim whitespace
         line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
 
-        // Handle PRINT(message)
+        // PRINT(HELLO WORLD FROM PROCESS)
         if (line.find("PRINT(") == 0 && line.back() == ')') {
             std::string msg = line.substr(6, line.size() - 7);
             commands.push_back(std::make_shared<PrintCommand>(msg));
         }
 
-        // Handle DECLARE(var, value)
+        // DECLARE(x,100)
         else if (line.find("DECLARE(") == 0 && line.back() == ')') {
             std::string args = line.substr(8, line.size() - 9);
             size_t comma = args.find(',');
@@ -48,29 +49,26 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             commands.push_back(std::make_shared<IOCommand>("DECLARE", var, "", "", std::stoi(val)));
         }
 
-        // Handle ADD(...) and SUBTRACT(...)
+        // ADD(x,y,z) or SUBTRACT(a,b,c)
         else if ((line.find("ADD(") == 0 || line.find("SUBTRACT(") == 0) && line.back() == ')') {
             std::string op = line.substr(0, line.find('('));
             std::string args = line.substr(op.size() + 1, line.size() - op.size() - 2);
-
             std::vector<std::string> parts;
             std::stringstream ss(args);
             std::string part;
             while (std::getline(ss, part, ',')) parts.push_back(part);
-
             if (parts.size() != 3) return false;
             commands.push_back(std::make_shared<IOCommand>(op, parts[0], parts[1], parts[2]));
         }
 
-        // Handle SLEEP(...)
+        // SLEEP(5)
         else if (line.find("SLEEP(") == 0 && line.back() == ')') {
             std::string ticks = line.substr(6, line.size() - 7);
             commands.push_back(std::make_shared<IOCommand>("SLEEP", ticks));
         }
 
-        // Handle FOR([...], N) -> flatten it
+        // FOR([...],N)
         else if (line.find("FOR([") == 0 && line.back() == ')') {
-			totalCommands =- 1; 
             size_t bodyStart = line.find("[") + 1;
             size_t bodyEnd = line.find("]");
             size_t commaAfterBody = line.find(",", bodyEnd);
@@ -82,7 +80,7 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             std::string repeatStr = line.substr(commaAfterBody + 1, line.size() - commaAfterBody - 2);
             int repeatCount = std::stoi(repeatStr);
 
-            // Extract individual command strings
+            // Split nested commands by ")," — same assumption: each ends with )
             std::vector<std::string> nestedCommands;
             while (true) {
                 size_t endPos = bodyStr.find("),");
@@ -93,20 +91,21 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             }
             if (!bodyStr.empty()) nestedCommands.push_back(bodyStr);
 
-            // Parse and flatten
+            // Parse nested commands
             CommandList tempList;
             if (!tempList.parseCommands(nestedCommands)) return false;
+
+            // Adjust totalCommands
+            totalCommands -= 1; // Removing FOR
+            totalCommands += repeatCount * tempList.commands.size();
+
             for (int i = 0; i < repeatCount; ++i) {
                 for (const auto& cmd : tempList.commands) {
-                    commands.push_back(cmd); // flatten by copying
-					totalCommands++;
-
+                    commands.push_back(cmd);
                 }
-
             }
         }
 
-        // Invalid format
         else {
             return false;
         }
