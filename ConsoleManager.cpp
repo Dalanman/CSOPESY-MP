@@ -4,10 +4,13 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#define byte win_byte_override //added
 #include <windows.h>
 #include "Colors.h"
 #include <fstream>
 #include <thread>
+#include <algorithm> //added
+#undef byte //added
 using namespace std;
 
 void clearScreen()
@@ -112,20 +115,50 @@ void readConfig(){
 
 bool ConsoleManager::handleCommand(const string& input){
 
-    // handles 'exit' if inside "process view" session
     if (inSession) {
-        if (input == "exit") {
+        if (input == "process-smi") {
+            if (activeProcess) {
+                cout << "\n=== Process SMI Report ===" << endl;
+                cout << "Process Name: " << activeProcess->getProcessName() << endl;
+                cout << "Process ID: " << activeProcess->getProcessId() << endl;
+                cout << "Arrival Time: " << activeProcess->getArrivalTimestamp() << endl;
+                cout << "Run Time: " << activeProcess->getRunTimestamp() << endl;
+
+                string logFile = activeProcess->getProcessName() + ".txt";
+                std::ifstream inFile(logFile);
+                if (inFile.is_open()) {
+                    cout << "\n--- Logs ---\n";
+                    std::string line;
+                    while (std::getline(inFile, line)) {
+                        cout << line << endl;
+                    }
+                    inFile.close();
+                } else {
+                    cout << "No logs found.\n";
+                }
+
+                if (activeProcess->getStatus() == FINISHED) {
+                    cout << "\nStatus: Finished!" << endl;
+                }
+            } else {
+                cout << RED << "No process is currently active in session." << RESET << endl;
+            }
+        }
+        else if (input == "exit") {
             cout << "> Exiting session..." << endl;
-            inSession = false;  
-            system("cls");  
-            printHeader();  
-            return true;
+            inSession = false;
+            activeProcess = nullptr;
+            system("cls");
+            printHeader();
         }
         else {
-            cout << "> You are currently viewing a process. Use 'exit' to return." << endl;
-            cout << "\nEnter a command: ";
+            cout << "> Unknown command in session. Try 'process-smi' or 'exit'." << endl;
         }
+        cout << "\nEnter a command: ";
+        return true;
     }
+
+ // If NOT in a session
     else if(!inSession) {
         if (!initialized){
             if (input == "initialize")
@@ -148,22 +181,32 @@ bool ConsoleManager::handleCommand(const string& input){
         }
         else{
             if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {
+                string processName = input.substr(10);
+                auto all = pm.getAllProcesses();
+                bool found = false;
 
-                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
-                    // if no "process" name
-                    clearScreen();
-                    cout << RED << "> Error: Missing process name for 'screen -r' command." << RESET << endl;
+                for (const auto& proc : all) {
+                    if (proc->getProcessName() == processName) {
+                        activeProcess = proc;
+                        found = true;
+                        break;
+                    }
                 }
-                else {
-                    string processName = input.substr(10);
+
+                if (!found) {
+                    cout << RED << "Process " << processName << " not found or already finished." << RESET << endl;
+                } else if (activeProcess->getStatus() == FINISHED) {
+                    cout << RED << "Process " << processName << " has already finished." << RESET << endl;
+                } else {
                     clearScreen();
-                    cout << YELLOW << "Process name: " + processName << RESET << endl;
-                    cout << "Current line: 100/100" << endl;
-                    cout << getCurrentTimeFormatted() << endl;
+                    cout << YELLOW << "Attached to process: " << processName << RESET << endl;
                     inSession = true;
-                    cout << "\nEnter a command: ";
                 }
+
+                cout << "\nEnter a command: ";
             } 
+
+
             else if (input == "scheduler-stop")
             {
                 pm.cancelAll();
@@ -179,9 +222,55 @@ bool ConsoleManager::handleCommand(const string& input){
             }       
             else if (input == "report-util")
             {
-                cout << "'report-util' command recognized. Doing something.";
+                std::ofstream reportFile("csopesy-log.txt");
+
+                if (!reportFile.is_open()) {
+                    cout << RED << "Failed to open csopesy-log.txt for writing." << RESET << endl;
+                } else {
+                    reportFile << "==== CSOPESY CPU UTILIZATION REPORT ====\n";
+                    reportFile << "Timestamp: " << getCurrentTimeFormatted() << "\n\n";
+
+                    int cores = pm.getCores();
+                    reportFile << "CPU Cores Available: " << cores << "\n";
+
+                    // Count cores in use
+                    std::vector<bool> coreUsed(cores, false);
+                    for (const auto& proc : pm.getAllProcesses()) {
+                        if (proc->getStatus() == RUNNING) {
+                            coreUsed[proc->getCoreIndex()] = true;
+                        }
+                    }
+                    int used = std::count(coreUsed.begin(), coreUsed.end(), true);
+                    reportFile << "Cores Currently in Use: " << used << "\n\n";
+
+                    reportFile << "-- Running Processes --\n";
+                    for (const auto& proc : pm.getAllProcesses()) {
+                        if (proc->getStatus() == RUNNING) {
+                            reportFile << "Name: " << proc->getProcessName() << "\t"
+                                    << "Arrival: " << proc->getArrivalTimestamp() << "\t"
+                                    << "Core: " << proc->getCoreIndex() << "\t"
+                                    << "Progress: " << proc->getCommandIndex() << "/"
+                                    << proc->getTotalCommands() << "\n";
+                        }
+                    }
+
+                    reportFile << "\n-- Finished Processes --\n";
+                    for (const auto& proc : pm.getAllProcesses()) {
+                        if (proc->getStatus() == FINISHED) {
+                            reportFile << "Name: " << proc->getProcessName() << "\t"
+                                    << "Arrival: " << proc->getArrivalTimestamp() << "\t"
+                                    << "Finished\t"
+                                    << "Total: " << proc->getTotalCommands() << "\n";
+                        }
+                    }
+
+                    reportFile.close();
+                    cout << GREEN << "Utilization report saved to csopesy-log.txt" << RESET << endl;
+                }
+
                 cout << "\nEnter a command: ";
             }
+
             else if (input == "clear")
             {
                 clearScreen();
@@ -212,5 +301,5 @@ bool ConsoleManager::handleCommand(const string& input){
     else {
         cout << "> You are currently viewing a process. Use 'exit' to return." << endl;
     }
-
+return false; //added
 }
