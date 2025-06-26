@@ -5,6 +5,9 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include "symbolTable.hpp"
+
+using namespace GlobalSymbols;
 
 extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
 
@@ -22,7 +25,7 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::ofstream &out) { /* do nothing */ }
+    virtual void printExecute(std::ofstream &out, vector<string>* logList) { /* do nothing */ }
     virtual void IOExecute() { /* do nothing */ }
     virtual std::string toString() const = 0;
 
@@ -37,9 +40,10 @@ public:
     PrintCommand(const std::string &msg)
         : Command(PRINT), message(msg) {}
 
-    void printExecute(std::ofstream &out) override
+    void printExecute(std::ofstream &out, vector<string>* logList) override
     {
         out << message << std::endl;
+        logList->push_back(message);
     }
 
     std::string toString() const override
@@ -76,38 +80,36 @@ public:
 
     void IOExecute() override
     {
+        std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex); // Ensure thread-safe access
+
         if (operation == "DECLARE")
         {
-            // Declare variable with default value if not present
-            if (symbolTable.find(lhsVar) == symbolTable.end())
+            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
             {
-                symbolTable[lhsVar] = rhsValue;
+                GlobalSymbols::symbolTable[lhsVar] = rhsValue;
             }
         }
         else if (operation == "ADD" || operation == "SUBTRACT")
         {
-            // Lazy declare missing variables
-            if (isalpha(rhsVar[0]) && symbolTable.find(rhsVar) == symbolTable.end())
-                symbolTable[rhsVar] = 0;
-            if (isalpha(extraVar[0]) && symbolTable.find(extraVar) == symbolTable.end())
-                symbolTable[extraVar] = 0;
-            if (symbolTable.find(lhsVar) == symbolTable.end())
-                symbolTable[lhsVar] = 0;
+            if (isalpha(rhsVar[0]) && GlobalSymbols::symbolTable.find(rhsVar) == GlobalSymbols::symbolTable.end())
+                GlobalSymbols::symbolTable[rhsVar] = 0;
+            if (isalpha(extraVar[0]) && GlobalSymbols::symbolTable.find(extraVar) == GlobalSymbols::symbolTable.end())
+                GlobalSymbols::symbolTable[extraVar] = 0;
+            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
+                GlobalSymbols::symbolTable[lhsVar] = 0;
 
-            uint16_t rhsVal = isalpha(rhsVar[0]) ? symbolTable[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
-            uint16_t extraVal = isalpha(extraVar[0]) ? symbolTable[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
+            uint16_t rhsVal = isalpha(rhsVar[0]) ? GlobalSymbols::symbolTable[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
+            uint16_t extraVal = isalpha(extraVar[0]) ? GlobalSymbols::symbolTable[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
 
             if (operation == "ADD")
-                symbolTable[lhsVar] = rhsVal + extraVal;
+                GlobalSymbols::symbolTable[lhsVar] = rhsVal + extraVal;
             else
-                symbolTable[lhsVar] = rhsVal - extraVal;
+                GlobalSymbols::symbolTable[lhsVar] = rhsVal - extraVal;
         }
         else if (operation == "SLEEP")
         {
-
             sleepTicks = static_cast<uint8_t>(std::stoi(lhsVar));
             isSleeping = true;
-            
         }
     }
 
@@ -135,7 +137,6 @@ public:
         return samples[rand() % samples.size()];
     }
 
-    // Getter for sleeping status (for external scheduler)
     bool sleeping() const { return isSleeping; }
     uint8_t getSleepTicks() const { return sleepTicks; }
 };
@@ -230,7 +231,7 @@ public:
         }
     }
 
-    void printExecute(std::ofstream &out) override
+    void printExecute(std::ofstream &out, vector<string>* logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
@@ -238,7 +239,7 @@ public:
             {
                 if (cmd->type == PRINT)
                 {
-                    cmd->printExecute(out);
+                    cmd->printExecute(out, logs);
                 }
                 else if (cmd->type == IO)
                 {
@@ -246,7 +247,7 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(out); // Recursive call for nested FORs
+                    cmd->printExecute(out, logs); // Recursive call for nested FORs
                 }
             }
         }
@@ -271,11 +272,11 @@ public:
                 {
                     cmd->IOExecute(); // Recursive call for nested FORs
                 }
-                else if (cmd->type == PRINT)
-                {
-                    std::ofstream dummyOut("/dev/null"); // Optional: discard output
-                    cmd->printExecute(dummyOut);
-                }
+                // else if (cmd->type == PRINT)
+                // {
+                //     std::ofstream dummyOut("/dev/null"); // Optional: discard output
+                //     cmd->printExecute(dummyOut, logs);
+                // }
             }
         }
     }

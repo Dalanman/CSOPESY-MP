@@ -127,7 +127,7 @@ void Process::execute()
     
     switch (currentCommand->type) {
         case PRINT:
-            currentCommand->printExecute(outFile);
+            currentCommand->printExecute(outFile, &logs);
             break;
         case IO:
             currentCommand->IOExecute();
