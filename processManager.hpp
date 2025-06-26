@@ -10,7 +10,7 @@ class ProcessManager {
 public:
     ProcessManager(int numCores) : cores(numCores) {};
 
-    void makeDummies(int num, int instructions, std::string text);
+    void makeDummies(int num, int minIns, int maxIns);
     void addProcess(std::shared_ptr<Process> p);
     void UpdateProcessScreen();
     bool allProcessesDone();

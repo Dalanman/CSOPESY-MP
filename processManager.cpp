@@ -8,35 +8,43 @@
 #include <iostream>
 #include "cpuWorker.hpp"
 #include <unordered_set>
-#include <algorithm>  
+#include <algorithm>
 #include <cstdlib>
 
-// ProcessManager::ProcessManager(int numCores) : cores(numCores) {}; 
+// ProcessManager::ProcessManager(int numCores) : cores(numCores) {};
 
-void ProcessManager::makeDummies(int num, int instructions, std::string text) {
+void ProcessManager::makeDummies(int num, int minIns, int maxIns)
+{
     int processNum = num;
-    int numLines = instructions;
+    int numLines = rand() % (maxIns - minIns + 1) + minIns;
     std::string name;
     int assignedCore;
 
-    for (int i = 0; i < processNum; i++) {
+    for (int i = 0; i < processNum; i++)
+    {
+        if (i < 10)
+            name = "process0" + std::to_string(i);
+        else
+            name = "process" + std::to_string(i);
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
         addProcess(proc);
 
-        for (int j = 0; j < numLines; j++) {
+        for (int j = 0; j < numLines; j++)
+        {
             std::string cmdStr;
-            int type = rand() % 3;  // 0: IO, 1: PRINT, 2: FOR
+            int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
 
-            switch (type) {
-                case 0:
-                    cmdStr = IOCommand::randomCommand();
-                    break;
-                case 1:
-                    cmdStr = PrintCommand::randomCommand();
-                    break;
-                case 2:
-                    cmdStr = ForCommand::randomCommand();
-                    break;
+            switch (type)
+            {
+            case 0:
+                cmdStr = IOCommand::randomCommand();
+                break;
+            case 1:
+                cmdStr = "HELLO WORLD FROM " + name; // TODO: MAKE IT DEFAULT TO PRINTING "HELLO WORLD FROM <processName>!"
+                break;
+            case 2:
+                cmdStr = ForCommand::randomCommand();
+                break;
             }
 
             proc->addCommand(cmdStr);
@@ -44,12 +52,15 @@ void ProcessManager::makeDummies(int num, int instructions, std::string text) {
     }
 }
 
-void ProcessManager::UpdateProcessScreen() {
+void ProcessManager::UpdateProcessScreen()
+{
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
-    for (const auto& p : process) {
-        if (p->getStatus() == 2) {
+    for (const auto &p : process)
+    {
+        if (p->getStatus() == 2)
+        {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
@@ -61,8 +72,10 @@ void ProcessManager::UpdateProcessScreen() {
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Finished processes: " << std::endl;
 
-    for (const auto& p : process) {
-        if (p->getStatus() == 3) {
+    for (const auto &p : process)
+    {
+        if (p->getStatus() == 3)
+        {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Finished\t"
@@ -72,12 +85,13 @@ void ProcessManager::UpdateProcessScreen() {
     }
 }
 
-std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::system_clock>& timePoint) {
+std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::system_clock> &timePoint)
+{
     // Convert time_point to std::time_t
     std::time_t time = std::chrono::system_clock::to_time_t(timePoint);
 
     // Convert to tm struct for formatting
-    std::tm* tm_time = std::localtime(&time);
+    std::tm *tm_time = std::localtime(&time);
 
     // Format the time into a string
     std::ostringstream oss;
@@ -86,55 +100,66 @@ std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::
     return oss.str();
 }
 
-void ProcessManager::addProcess(std::shared_ptr<Process> p) {
+void ProcessManager::addProcess(std::shared_ptr<Process> p)
+{
     p->setCreationTime(toString(std::chrono::system_clock::now()));
     Status state = READY;
     p->setStatus(state);
     process.push_back(p);
 }
 
-bool ProcessManager::allProcessesDone() {
-    for (const auto& p : process) {
+bool ProcessManager::allProcessesDone()
+{
+    for (const auto &p : process)
+    {
         if (p->getStatus() != FINISHED && p->getStatus() != CANCELLED)
             return false;
     }
     return true;
 }
 
-void ProcessManager::executeFCFS() {
+void ProcessManager::executeFCFS()
+{
     workers.clear();
     threads.clear();
 
-	//cout << "Executing processes using FCFS scheduling..." << std::endl;
+    // cout << "Executing processes using FCFS scheduling..." << std::endl;
     std::unordered_set<int> assignedProcessIds;
 
-    for (int i = 0; i < cores; ++i) {
+    for (int i = 0; i < cores; ++i)
+    {
         workers.emplace_back(std::make_unique<CPUWorker>(i, nullptr, cores));
     }
 
-    for (auto& worker : workers) {
+    for (auto &worker : workers)
+    {
         threads.emplace_back(&CPUWorker::runWorker, worker.get());
     }
 
-    while (!allProcessesDone()) {
-		//cout << "Checking for processes to assign..." << std::endl;
+    while (!allProcessesDone())
+    {
+        // cout << "Checking for processes to assign..." << std::endl;
         std::vector<std::shared_ptr<Process>> readyQueue;
 
-        for (auto& p : process) {
-			//cout << "Checking process: " << p->getProcessName() << std::endl;
-            if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId())) {
+        for (auto &p : process)
+        {
+            // cout << "Checking process: " << p->getProcessName() << std::endl;
+            if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId()))
+            {
                 readyQueue.push_back(p);
             }
         }
 
-        std::sort(readyQueue.begin(), readyQueue.end(), [](auto& a, auto& b) {
-            return a->getCreationTimestamp() < b->getCreationTimestamp();
-        });
+        std::sort(readyQueue.begin(), readyQueue.end(), [](auto &a, auto &b)
+                  { return a->getCreationTimestamp() < b->getCreationTimestamp(); });
 
-        for (auto& p : readyQueue) {
-			//cout << "Assigning process: " << p->getProcessName() << std::endl;
-            for (auto& worker : workers) {
-                if (!worker->hasProcess()) {
+        for (auto &p : readyQueue)
+        {
+            // cout << "Assigning process: " << p->getProcessName() << std::endl;
+            for (auto &worker : workers)
+            {
+                if (!worker->hasProcess())
+                {
                     p->setStatus(RUNNING);
                     p->setCoreIndex(worker->getId());
                     p->setArrivalTime();
@@ -150,43 +175,46 @@ void ProcessManager::executeFCFS() {
 
     workers[0]->stopAllWorkers();
 
-    //std::cout << "All processes done " << allProcessesDone() << std::endl;
+    // std::cout << "All processes done " << allProcessesDone() << std::endl;
 
     threads[0].join();
     threads[1].join();
     threads[2].join();
     threads[3].join();
-    //cout << "Thread joined." << std::endl;
+    // cout << "Thread joined." << std::endl;
     /*
     for (auto& t : threads) {
-		cout << "Joining thread..." << std::endl;
-		cout << t.joinable() << std::endl;
+        cout << "Joining thread..." << std::endl;
+        cout << t.joinable() << std::endl;
         if (t.joinable()) {
             t.join();
-			cout << "Thread joined." << std::endl;
+            cout << "Thread joined." << std::endl;
         }
     }
     */
 
-	cout << "All processes have been executed using FCFS scheduling." << std::endl;
+    cout << "All processes have been executed using FCFS scheduling." << std::endl;
     cout << "Enter a command: ";
     return;
 }
 
-void ProcessManager::cancelAll() {
-    
+void ProcessManager::cancelAll()
+{
+
     CPUWorker::stopAllWorkers();
 
-    
-    for (auto& p : process) {
-        if (p->getStatus() != FINISHED) {
+    for (auto &p : process)
+    {
+        if (p->getStatus() != FINISHED)
+        {
             p->setStatus(CANCELLED);
         }
     }
 
-    
-    for (auto& t : threads) {
-        if (t.joinable()) t.join();
+    for (auto &t : threads)
+    {
+        if (t.joinable())
+            t.join();
     }
 
     std::cout << "All workers have been stopped and unfinished processes are CANCELLED.\n";

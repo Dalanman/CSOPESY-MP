@@ -3,12 +3,15 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include "commandList.hpp"
 Process::Process(const std::string &name, int id, int assignedCore, int totalInstructions)
+    : processName(name),
+      processId(id),
+      coreIndex(assignedCore),
+      numCommands(totalInstructions),
+      commandList(totalInstructions)
 {
-    this->processName = name;
-    this->processId = id;
-    this->coreIndex = assignedCore;
-    this->numCommands = totalInstructions;
+    
 }
 
 void Process::addCommand(string text){

@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include "symbolTable.hpp"
-
+#include <vector>
 using namespace GlobalSymbols;
 
 extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
@@ -25,7 +25,7 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::ofstream &out, vector<string>* logList) { /* do nothing */ }
+    virtual void printExecute(std::ofstream &out, std::vector<std::string>* logList) { /* do nothing */ }
     virtual void IOExecute() { /* do nothing */ }
     virtual std::string toString() const = 0;
 
@@ -40,7 +40,7 @@ public:
     PrintCommand(const std::string &msg)
         : Command(PRINT), message(msg) {}
 
-    void printExecute(std::ofstream &out, vector<string>* logList) override
+    void printExecute(std::ofstream &out, std::vector<std::string>* logList) override
     {
         out << message << std::endl;
         logList->push_back(message);
@@ -231,7 +231,7 @@ public:
         }
     }
 
-    void printExecute(std::ofstream &out, vector<string>* logs) override
+    void printExecute(std::ofstream &out, std::vector<std::string>* logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {

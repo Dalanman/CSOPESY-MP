@@ -213,9 +213,11 @@ bool ConsoleManager::handleCommand(const string& input){
                 cout << "\nEnter a command: ";
             }
             else if (input == "scheduler-start")
-            { 
+            {   
+                int min = configReader->getMinIns();
+                int max = configReader->getMaxIns();
                 // cout << pm.getCores() << endl;
-                pm.makeDummies(10, 100, "Hello world from");                // Initialize dummy processes
+                pm.makeDummies(10, min, max);                // Initialize dummy processes
                 if (Scheduler.joinable()) Scheduler.join(); // Wait if already running
                     Scheduler = std::thread(&ProcessManager::executeFCFS, &pm);
                 cout << "\nEnter a command: ";

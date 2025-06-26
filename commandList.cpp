@@ -1,7 +1,8 @@
 #include "commandList.hpp"
 
-CommandList::CommandList()
+CommandList::CommandList( int total)
 {
+    totalCommands = total;
 }
 
 void CommandList::removeCommandAt(int index) {
