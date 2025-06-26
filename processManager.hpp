@@ -18,6 +18,7 @@ public:
     void executeFCFS();
     void cancelAll();
     int getCores() const { return cores; };
+    std::vector<std::shared_ptr<Process>> getAllProcesses() const { return process; } //added
 
 private:
     int cores;
