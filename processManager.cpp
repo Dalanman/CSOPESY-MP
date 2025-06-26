@@ -18,29 +18,31 @@ void ProcessManager::makeDummies(int num, int instructions, string text) {
     string output = text;
     std::string name;
     int assignedCore;
-    for (int i = 0; i < processNum; i++){
-		//cout << "Creating dummy process... " << i << std::endl;
-        if (i < 10){
+
+    for (int i = 0; i < processNum; i++) {
+        if (i < 10) {
             name = "screen_0" + std::to_string(i);
-        } else {
+        }
+        else {
             name = "screen_" + std::to_string(i);
         }
         assignedCore = i % this->cores;
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
-        addProcess(proc);
-        for (int j = 0; j < numLines; j++){
-            //cout << "Adding line " << j << " to " << name << "..." << std::endl;
-            process[i]->addCommand(output);
+        addProcess(proc); 
+        for (int j = 0; j < numLines; j++) {
+            proc->addCommand(output);
         }
+        addToReadyQueue(proc.get());
     }
 }
+
 
 void ProcessManager::UpdateProcessScreen() {
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
     for (const auto& p : process) {
-        if (p->getStatus() == 2) {
+        if (p->getStatus() == 2 || p->getStatus() == 1 || p->getStatus() == 0) {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
@@ -164,15 +166,22 @@ void ProcessManager::executeFCFS() {
     return;
 }
 
+void ProcessManager::addToReadyQueue(Process* p) {
+    std::lock_guard<std::mutex> lock(readyQueueMutex);
+    readyQueue.push(p);
+}
+
 void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec) {
     // Resize based on cpu count
     coreThreads.resize(numCpu);
 
-    for (int i = 0; i < numCpu; ++i) {
+    for (int i = 0; i < numCpu; i++) {
+        std::cout << "Process creation " << i << std::endl; // For debugging ; creates i amount of threads based on numCpu
         coreThreads[i] = std::thread([&, i]() {
             while (!allProcessesDone()) {
                 Process* currentProcess = nullptr;
 
+                
                 // Get process from queue
                 {
                     std::lock_guard<std::mutex> lock(readyQueueMutex);
@@ -183,23 +192,25 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
                 }
 
                 if (currentProcess) {
-                    int executed = 0;
-
+                    int executed = 0; // Counter 
+                    std::cout << "Running process in if statement" << std::endl; // For debugging
                     // Execute up to quantum instructions or until finished
-                    while (executed < quantumCycle && !currentProcess->getStatus() == 3) {
-                        currentProcess->execute(); // 1 instruction
+                    while (executed < quantumCycle && currentProcess->getStatus() != FINISHED) {
+                        currentProcess->execute(); // Calls execute here || one instruction only
                         std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
                         executed++;
                     }
 
                     // Requeue
-                    if (!currentProcess->getStatus() == 3) {
+                    if (currentProcess->getStatus() != FINISHED) {
+                        std::cout << "Running process in requeue" << std::endl; // For debugging
                         std::lock_guard<std::mutex> lock(readyQueueMutex);
                         readyQueue.push(currentProcess);
                     }
                 }
                 else {
                     // Idle time if no processes in queue
+                    std::cout << "Running process in idle" << std::endl; // For debugging
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
                 }
             }
@@ -212,7 +223,6 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
         std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 
-    // Wait for all threads to complete
     for (auto& t : coreThreads) {
         if (t.joinable()) t.join();
     }
