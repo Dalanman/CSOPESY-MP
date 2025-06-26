@@ -18,6 +18,12 @@ void Process::addCommand(string text){
     commands.emplace_back(text);
 }
 
+void Process::parse() {  
+    std::cout << "SIZE: " << commands.size() << std::endl;
+    commandList.parseCommands(commands);  
+    std::cout << "ACTUAL SIZE: " << commandList.getTotalCommands() << endl;
+}
+
 void Process::setArrivalTime()
 {
     // Getting the arrival time
@@ -98,14 +104,15 @@ void Process::execute()
         setStatus(RUNNING);
     }
 
+	// std::cout << "Process " << processName << " is executing on core " << coreIndex << std::endl;
     if (commandIndex >= commandList.getTotalCommands()) {
         setRunTimeStamp();
         setStatus(FINISHED);
         return;
     }
 
+	// std::cout << "EXEC COMMAND: " << commandIndex << std::endl;
     std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
-
     
     if (currentCommand->type == FOR) {
         auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);

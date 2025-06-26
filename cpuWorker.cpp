@@ -64,3 +64,43 @@ void CPUWorker::runWorker() {
 
     }
 }
+
+void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
+    std::queue<Process*>& readyQueue,
+    std::mutex& readyQueueMutex) {
+
+    while (true) {
+        Process* currentProcess = nullptr;
+
+        {
+            std::lock_guard<std::mutex> lock(readyQueueMutex);
+            if (!readyQueue.empty()) {
+                currentProcess = readyQueue.front();
+                readyQueue.pop();
+            }
+        }
+
+        if (currentProcess) {
+            currentProcess->setCoreIndex(this->id);
+            int executed = 0;
+
+            while (executed < quantumCycle && currentProcess->getStatus() != FINISHED) {
+                // std::cout << "CPU Worker " << id << " is executing process " << currentProcess->getProcessId() << std::endl;
+                currentProcess->execute(); // one instruction
+              
+                std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
+                executed++;
+            }
+
+            if (currentProcess->getStatus() != FINISHED) {
+                std::lock_guard<std::mutex> lock(readyQueueMutex);
+                readyQueue.push(currentProcess);
+            }
+        }
+        else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); // idle wait
+        }
+
+        if (CPUWorker::stopFlag.load()) break;
+    }
+}

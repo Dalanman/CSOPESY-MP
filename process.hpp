@@ -30,9 +30,9 @@ public:
     
 
     // Public methods
-    void displayDetails() const;
-    void processSMI();
-    void getNextCommand();
+    // void displayDetails() const;
+    // void processSMI();
+    // void getNextCommand();
     void execute();
     void setRunTimeStamp();
     void setCoreIndex(int core) { coreIndex = core; }
@@ -41,6 +41,7 @@ public:
     void addCommand(string text);
     // void setCreationTime(std::chrono::time_point<std::chrono::system_clock> creationTime) { creationTimeStamp = creationTime; }
     void setCreationTime(string creationTime) { creationTimeStamp = creationTime; }
+    void parse();
     // Getters
     string getProcessName() const { return processName; }
     int getProcessId() const { return processId; }

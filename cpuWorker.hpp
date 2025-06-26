@@ -6,6 +6,7 @@
 #include <memory>
 #include <atomic>
 #include <iostream>
+#include <queue>
 #include "process.hpp"
 
 class CPUWorker {
@@ -16,6 +17,7 @@ public:
     bool hasProcess() const;
     int getId() const;
     void runWorker();
+    void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process*>& readyQueue, std::mutex& readyQueueMutex);
     void stop();
     static void stopAllWorkers();
 

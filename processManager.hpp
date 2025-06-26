@@ -21,7 +21,7 @@ public:
     int getCores() const { return cores; };
 
     void addToReadyQueue(Process* p);
-    void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
+    void executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
 
 private:
     int cores;

@@ -15,13 +15,15 @@
 void ProcessManager::makeDummies(int num, int minIns, int maxIns)
 {
     int processNum = num;
-    int numLines = rand() % (maxIns - minIns + 1) + minIns;
+    int numLines = 0;
     std::string name;
-    int assignedCore;
+    int assignedCore = -1;
 
-    std::cout << "Test 1" << std::endl;
+    // std::cout << "Test 1" << std::endl;
     for (int i = 0; i < processNum; i++)
     {
+         numLines = rand() % (maxIns - minIns + 1) + minIns;
+
         if (i < 10)
             name = "process0" + std::to_string(i);
         else
@@ -29,10 +31,10 @@ void ProcessManager::makeDummies(int num, int minIns, int maxIns)
         auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
         addProcess(proc);
 
-        std::cout << "Test 2" << std::endl;
+        // std::cout << "Test 2" << std::endl;
         for (int j = 0; j < numLines; j++)
         {
-            std::cout << "Test 3" << std::endl;
+            // std::cout << "Test 3" << std::endl;
             std::string cmdStr;
             int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
 
@@ -51,9 +53,11 @@ void ProcessManager::makeDummies(int num, int minIns, int maxIns)
 
             proc->addCommand(cmdStr);
         }
-        std::cout << "Test 4" << std::endl;
+        // std::cout << "Test 4" << std::endl;
+        proc->parse();
         addToReadyQueue(proc.get());
     }
+
 }
         
 
@@ -192,65 +196,45 @@ void ProcessManager::addToReadyQueue(Process* p) {
 }
 
 void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec) {
-    // Resize based on cpu count
-    coreThreads.resize(numCpu);
+    workers.clear();
+    threads.clear();
 
-    for (int i = 0; i < numCpu; i++) {
-        std::cout << "Process creation " << i << std::endl; // For debugging ; creates i amount of threads based on numCpu
-        coreThreads[i] = std::thread([&, i]() {
-            while (!allProcessesDone()) {
-                Process* currentProcess = nullptr;
-
-                
-                // Get process from queue
-                {
-                    std::lock_guard<std::mutex> lock(readyQueueMutex);
-                    if (!readyQueue.empty()) {
-                        currentProcess = readyQueue.front();
-                        readyQueue.pop();
-                    }
-                }
-
-                if (currentProcess) {
-                    int executed = 0; // Counter 
-                    std::cout << "Running process in if statement" << std::endl; // For debugging
-                    // Execute up to quantum instructions or until finished
-                    while (executed < quantumCycle && currentProcess->getStatus() != FINISHED) {
-                        currentProcess->execute(); // Calls execute here || one instruction only
-                        std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
-                        executed++;
-                    }
-
-                    // Requeue
-                    if (currentProcess->getStatus() != FINISHED) {
-                        std::cout << "Running process in requeue" << std::endl; // For debugging
-                        std::lock_guard<std::mutex> lock(readyQueueMutex);
-                        readyQueue.push(currentProcess);
-                    }
-                }
-                else {
-                    // Idle time if no processes in queue
-                    std::cout << "Running process in idle" << std::endl; // For debugging
-                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                }
-            }
-            });
+    // Create CPUWorkers (but don't assign specific processes)
+    for (int i = 0; i < numCpu; ++i) {
+        workers.emplace_back(std::make_unique<CPUWorker>(i, nullptr, numCpu));
     }
 
-    // UI updater 
+    // Start threads using runRRWorker with the shared readyQueue
+    for (auto& worker : workers) {
+        threads.emplace_back(
+            &CPUWorker::runRRWorker,
+            worker.get(),
+            cpuTick,
+            quantumCycle,
+            delayPerExec,
+            std::ref(readyQueue),
+            std::ref(readyQueueMutex)
+        );
+    }
+
+    // UI updater thread loop
     while (!allProcessesDone()) {
         UpdateProcessScreen();
         std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 
-    for (auto& t : coreThreads) {
-        if (t.joinable()) t.join();
+    // Stop all workers (if needed — for now, they exit when processes finish)
+
+    // Join all threads
+    for (auto& t : threads) {
+        if (t.joinable()) {
+            t.join();
+        }
     }
+
+    std::cout << "All processes have been executed using Round Robin scheduling." << std::endl;
+    std::cout << "Enter a command: ";
 }
-
-
-
-
 
 void ProcessManager::cancelAll() {
     

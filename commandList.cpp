@@ -1,5 +1,9 @@
 #include "commandList.hpp"
 
+CommandList::CommandList() {
+
+}
+
 CommandList::CommandList( int total)
 {
     totalCommands = total;
@@ -12,6 +16,14 @@ void CommandList::removeCommandAt(int index) {
 
 void CommandList::insertCommandsAt(int index, const std::vector<std::shared_ptr<Command>>& newCommands) {
     commands.insert(commands.begin() + index, newCommands.begin(), newCommands.end());
+}
+
+void CommandList::executeCommand(int index) {
+
+}
+
+void CommandList::addCommand(std::string line) {
+    
 }
 
 bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
@@ -58,6 +70,7 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
 
         // Handle FOR([...], N) -> flatten it
         else if (line.find("FOR([") == 0 && line.back() == ')') {
+			totalCommands =- 1; 
             size_t bodyStart = line.find("[") + 1;
             size_t bodyEnd = line.find("]");
             size_t commaAfterBody = line.find(",", bodyEnd);
@@ -86,7 +99,10 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
             for (int i = 0; i < repeatCount; ++i) {
                 for (const auto& cmd : tempList.commands) {
                     commands.push_back(cmd); // flatten by copying
+					totalCommands++;
+
                 }
+
             }
         }
 
