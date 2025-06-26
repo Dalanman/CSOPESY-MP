@@ -301,5 +301,5 @@ bool ConsoleManager::handleCommand(const string& input){
     else {
         cout << "> You are currently viewing a process. Use 'exit' to return." << endl;
     }
-return false; //added
+return true; //added
 }
