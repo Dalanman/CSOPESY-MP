@@ -15,53 +15,59 @@
 #include <cstdlib> // For srand and rand
 #include <ctime>   // For time
 
-void ProcessManager::makeDummies(int minIns, int maxIns)
+void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 {
     int numLines = 0;
     std::string name;
     int assignedCore = -1;
     int i = 0;
+    int counterForBPF = 0;
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
     while(!dummyStop)
     {
+        if (counterForBPF % BPF == 0) {
+            // std::cout << "Created 1 process at " << counterForBPF << std::endl; For debugging
+            // Generate a random number of instructions within the range
+            numLines = rand() % (maxIns - minIns + 1) + minIns;
 
-        // Generate a random number of instructions within the range
-        numLines = rand() % (maxIns - minIns + 1) + minIns;
+            if (i < 10)
+                name = "process0" + std::to_string(i);
+            else
+                name = "process" + std::to_string(i);
 
-        if (i < 10)
-            name = "process0" + std::to_string(i);
-        else
-            name = "process" + std::to_string(i);
+            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+            addProcess(proc);
 
-        auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
-        addProcess(proc);
-
-        for (int j = 0; j < numLines; j++)
-        {
-            std::string cmdStr;
-            int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
-
-            switch (type)
+            for (int j = 0; j < numLines; j++)
             {
-            case 0:
-                cmdStr = IOCommand::randomCommand();
-                break;
-            case 1:
-                cmdStr = "PRINT(HELLO WORLD FROM " + name + ")";
-                break;
-            case 2:
-                cmdStr = ForCommand::randomCommand(name);
-                break;
+                std::string cmdStr;
+                int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
+
+                switch (type)
+                {
+                case 0:
+                    cmdStr = IOCommand::randomCommand();
+                    break;
+                case 1:
+                    cmdStr = "PRINT(HELLO WORLD FROM " + name + ")";
+                    break;
+                case 2:
+                    cmdStr = ForCommand::randomCommand(name);
+                    break;
+                }
+
+                proc->addCommand(cmdStr);
             }
 
-            proc->addCommand(cmdStr);
+            proc->parse();
+            addToReadyQueue(proc.get());
+            i++;
         }
 
-        proc->parse();
-        addToReadyQueue(proc.get());
-        i++;
+        counterForBPF++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 }
 
@@ -219,14 +225,14 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
             std::ref(readyQueueMutex));
     }
 
-    // UI updater thread loop
+    // Hindi na naca-call since at the start, wala pang processes
     while (!allProcessesDone())
     {
         UpdateProcessScreen();
         std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 
-    // Stop all workers (if needed � for now, they exit when processes finish)
+    // Stop all workers (if needed for now, they exit when processes finish)
 
     // Join all threads
     for (auto &t : threads)

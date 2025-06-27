@@ -137,5 +137,6 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); // idle wait
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 }

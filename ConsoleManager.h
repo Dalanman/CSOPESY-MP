@@ -28,6 +28,7 @@ private:
     int DelayPerExec;
     int MinIns;
     int MaxIns;
+    int cpuTick = 0;
 
 public:
     ConsoleManager();

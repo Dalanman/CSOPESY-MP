@@ -67,6 +67,8 @@ std::string getCurrentTimeFormatted() {
 
 ConsoleManager::ConsoleManager() : pm(4) {
     std::thread Scheduler;
+    std::thread dummyMaker;
+    int cpuTick = 500;
 }
 
 void ConsoleManager::run() {
@@ -236,9 +238,9 @@ bool ConsoleManager::handleCommand(const string& input) {
             {
                 // Create dummy processes
                 if (dummyMaker.joinable()) dummyMaker.join();
-                    dummyMaker = std::thread(&ProcessManager::makeDummies, MinIns, MaxIns);
+                    dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
                 if (Scheduler.joinable()) Scheduler.join();
-                Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, 500, quantumCycle, DelayPerExec);
+                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
 
                 cout << "\nEnter a command: ";
             }

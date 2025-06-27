@@ -20,15 +20,16 @@ void Process::addCommand(string text)
 
 void Process::parse()
 {
-    std::cout << "SIZE: " << commands.size() << std::endl;
+    //std::cout << "SIZE: " << commands.size() << std::endl;
     bool test = commandList.parseCommands(commands);
-    std::cout << "ACTUAL SIZE: " << commandList.getSize() << endl;
-    std::cout << test << endl;
-
+    //std::cout << "ACTUAL SIZE: " << commandList.getSize() << endl;
+    //std::cout << test << endl;
+    /*
     for (const auto &cmd : commands)
     {
         std::cout << "(" << cmd << ")" << std::endl;
     }
+    */
 }
 
 void Process::setArrivalTime()
