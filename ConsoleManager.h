@@ -20,6 +20,7 @@ private:
     std::thread InputHandler;
     ConfigReader* configReader;
     // SymbolTable symbolTable;
+    std::shared_ptr<Process> activeProcess = nullptr;
 
     int numCpu;
     int quantumCycle;

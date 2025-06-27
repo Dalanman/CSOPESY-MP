@@ -19,7 +19,7 @@ public:
     void executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
     void cancelAll();
     int getCores() const { return cores; };
-
+    std::vector<std::shared_ptr<Process>> getAllProcesses() const { return process; }
     void addToReadyQueue(Process* p);
     void executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
     void stopDummy(){
