@@ -16,6 +16,7 @@ private:
     bool stopInput = false;
     ProcessManager pm;
     std::thread Scheduler;
+    std::thread dummyMaker;
     std::thread InputHandler;
     ConfigReader* configReader;
     // SymbolTable symbolTable;

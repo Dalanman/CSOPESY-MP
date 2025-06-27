@@ -15,18 +15,18 @@
 #include <cstdlib> // For srand and rand
 #include <ctime>   // For time
 
-void ProcessManager::makeDummies(int num, int minIns, int maxIns)
+void ProcessManager::makeDummies(int minIns, int maxIns)
 {
-    int processNum = num;
     int numLines = 0;
     std::string name;
     int assignedCore = -1;
-
+    int i = 0;
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    for (int i = 0; i < processNum; i++)
+    while(!dummyStop)
     {
+
         // Generate a random number of instructions within the range
         numLines = rand() % (maxIns - minIns + 1) + minIns;
 
@@ -61,6 +61,7 @@ void ProcessManager::makeDummies(int num, int minIns, int maxIns)
 
         proc->parse();
         addToReadyQueue(proc.get());
+        i++;
     }
 }
 

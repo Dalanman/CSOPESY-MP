@@ -173,13 +173,15 @@ bool ConsoleManager::handleCommand(const string& input){
             } 
             else if (input == "scheduler-stop")
             {
-                pm.cancelAll();
+                pm.stopDummy();
+                if (dummyMaker.joinable()) dummyMaker.join();
                 cout << "\nEnter a command: ";
             }
             else if (input == "scheduler-start")
             { 
                 // Create dummy processes
-                pm.makeDummies(10, MinIns, MaxIns);
+                if (dummyMaker.joinable()) dummyMaker.join();
+                    dummyMaker = std::thread(&ProcessManager::makeDummies, MinIns, MaxIns);
                 if (Scheduler.joinable()) Scheduler.join();
                     Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, 500, quantumCycle, DelayPerExec);
 
