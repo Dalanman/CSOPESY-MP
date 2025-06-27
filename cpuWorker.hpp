@@ -16,7 +16,7 @@ public:
     void assignProcess(std::shared_ptr<Process> p);
     bool hasProcess() const;
     int getId() const;
-    void runWorker();
+    void runWorker(int cpuTick);
     void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process*>& readyQueue, std::mutex& readyQueueMutex);
     void stop();
     static void stopAllWorkers();

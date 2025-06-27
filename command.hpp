@@ -78,7 +78,10 @@ public:
     IOCommand(const std::string &op, const std::string &lhs = "", const std::string &rhs = "", const std::string &extra = "", uint16_t value = 0)
         : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {}
 
-    void IOExecute() override
+    std::string getOperation() {
+        return operation;
+    }
+        void IOExecute() override
     {
         std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex); // Ensure thread-safe access
 
@@ -157,13 +160,13 @@ public:
         }
     }
 
-    static std::string randomCommand()
+    static std::string randomCommand(std::string name)
     {
         static std::vector<std::string> samples = {
-            "FOR([PRINT(Hello World), PRINT(Execution done)], 2)",
+            "FOR([PRINT(Hello World FROM " + name + "), PRINT(Hello World FROM " + name + ")], 2)",
             "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
             "FOR([PRINT(Loop Start), SLEEP(2), PRINT(Loop End)], 4)",
-            "FOR([FOR([PRINT(Nested Loop), SLEEP(1)], 2)], 2)",
+            "FOR([FOR([PRINT(Hello World FROM " + name + "), SLEEP(1)], 2)], 2)",
             "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(b)], 3)"};
         return samples[rand() % samples.size()];
     }

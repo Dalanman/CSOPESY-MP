@@ -11,20 +11,22 @@ Process::Process(const std::string &name, int id, int assignedCore, int totalIns
       numCommands(totalInstructions),
       commandList(totalInstructions)
 {
-    
 }
 
-void Process::addCommand(string text){
+void Process::addCommand(string text)
+{
     commands.emplace_back(text);
 }
 
-void Process::parse() {  
+void Process::parse()
+{
     std::cout << "SIZE: " << commands.size() << std::endl;
-    bool test = commandList.parseCommands(commands);  
+    bool test = commandList.parseCommands(commands);
     std::cout << "ACTUAL SIZE: " << commandList.getSize() << endl;
     std::cout << test << endl;
- 
-    for (const auto& cmd : commands) {
+
+    for (const auto &cmd : commands)
+    {
         std::cout << "(" << cmd << ")" << std::endl;
     }
 }
@@ -98,70 +100,92 @@ void Process::execute()
     std::string filename = processName + ".txt";
     std::ofstream outFile(filename, std::ios::app);
 
-    if (!outFile.is_open()) {
+    if (!outFile.is_open())
+    {
         std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
         return;
     }
 
     // Initialize on first run
-    if (status == READY) {
+    if (status == READY)
+    {
         setArrivalTime();
         setStatus(RUNNING);
     }
 
-	// std::cout << "Process " << processName << " is executing on core " << coreIndex << std::endl;
-    if (commandIndex >= commandList.getTotalCommands()) {
+    if (isSleeping())
+    {
+        // Log sleeping if you want
+        outFile << "(" << arrivalTimeStamp << ") "
+                << "Core: " << coreIndex << " "
+                << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
+                << processName << "\n";
+        outFile.close();
+        return; // Still sleeping, do nothing this tick
+    }
+
+    // std::cout << "Process " << processName << " is executing on core " << coreIndex << std::endl;
+    if (commandIndex >= commandList.getTotalCommands())
+    {
         setRunTimeStamp();
         setStatus(FINISHED);
         return;
     }
 
-	// std::cout << "EXEC COMMAND: " << commandIndex << " CORE INDEX: " << coreIndex << std::endl;
+    // std::cout << "EXEC COMMAND: " << commandIndex << " CORE INDEX: " << coreIndex << std::endl;
     std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
-    
-    if (currentCommand->type == FOR) {
+
+    if (currentCommand->type == FOR)
+    {
         auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
-        if (forCmd) {
+        if (forCmd)
+        {
             auto expanded = forCmd->unrollBody();
 
-            
-            commandList.removeCommandAt(commandIndex);  // assume this exists
-            commandList.insertCommandsAt(commandIndex, expanded);  // assume this exists
+            commandList.removeCommandAt(commandIndex);            // assume this exists
+            commandList.insertCommandsAt(commandIndex, expanded); // assume this exists
 
-            
             outFile.close();
             return;
         }
     }
 
-    
     outFile << "(" << arrivalTimeStamp << ") "
             << "Core: " << coreIndex << " "
             << currentCommand->toString() << " "
             << processName << "\n";
 
-    
-    switch (currentCommand->type) {
-        case PRINT:
-            currentCommand->printExecute(outFile, &logs);
-            break;
-        case IO:
+    switch (currentCommand->type)
+    {
+    case PRINT:
+        currentCommand->printExecute(outFile, &logs);
+        break;
+    case IO:
+    {
+        auto ioCmd = std::dynamic_pointer_cast<IOCommand>(currentCommand);
+        if (ioCmd && ioCmd->getOperation() == "SLEEP")
+        {
+            sleepRemainingTicks = ioCmd->getSleepTicks(); // Start sleeping
+            // Don't increment commandIndex until sleep finishes
+        }
+        else
+        {
             currentCommand->IOExecute();
-            break;
-        default:
-            break;
+            commandIndex++;
+        }
+    }
+    break;
+    default:
+        break;
     }
 
     commandIndex++;
 
-
-    if (commandIndex >= commandList.getTotalCommands()) {
+    if (commandIndex >= commandList.getTotalCommands())
+    {
         setRunTimeStamp();
         setStatus(FINISHED);
     }
 
     outFile.close();
 }
-
-
-

@@ -13,21 +13,19 @@
 using namespace std;
 
 enum Status
-    {
-        WAITING,
-        READY,
-        RUNNING,
-        FINISHED,
-        CANCELLED
-    };
+{
+    WAITING,
+    READY,
+    RUNNING,
+    FINISHED,
+    CANCELLED
+};
 
 class Process
 {
 public:
     // Constructor
     Process(const std::string &name, int id, int assignedCore, int totalInstructions);
-
-    
 
     // Public methods
     // void displayDetails() const;
@@ -53,8 +51,29 @@ public:
     // std::chrono::time_point<std::chrono::system_clock> getCreationTimestamp() const { return creationTimeStamp; }
     string getCreationTimestamp() const { return creationTimeStamp; }
     string getRunTimestamp() const { return runTimeStamp; }
-    string getArrivalTimestamp() const { return arrivalTimeStamp;}
+    string getArrivalTimestamp() const { return arrivalTimeStamp; }
     int getActualCommands() { return commandList.getSize(); }
+
+    bool isSleeping() const
+    {
+        return sleepRemainingTicks > 0;
+    }
+
+    void tickSleep()
+    {
+        if (sleepRemainingTicks > 0)
+        {
+            sleepRemainingTicks--;
+        }
+        // Wake up automatically after last tick
+        if (sleepRemainingTicks == 0 && getStatus() != FINISHED)
+        {
+            // Continue normally in next execute()
+            // Optional: setStatus(RUNNING); // Only if needed
+        }
+    }
+
+    int getSleepRemaining() const { return sleepRemainingTicks; }
 
 private:
     Status status;
@@ -63,14 +82,15 @@ private:
     vector<string> commands; // List of commands
     CommandList commandList;
     vector<string> logs;
-    int numCommands; //number of instructions
-    int commandIndex = 0;        // Current executed command
+    int numCommands;      // number of instructions
+    int commandIndex = 0; // Current executed command
     // std::chrono::time_point<std::chrono::system_clock> creationTimeStamp;
     string creationTimeStamp;
     string arrivalTimeStamp;
     string runTimeStamp;
     bool isActive;
     int coreIndex; // index of core assigned to process
+    int sleepRemainingTicks = 0;
 };
 
 #endif // PROCESS_H
