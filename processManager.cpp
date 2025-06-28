@@ -107,13 +107,14 @@ void ProcessManager::UpdateProcessScreen()
 
     for (const auto &p : process)
     {
+        //|| p->getStatus() == 1 || p->getStatus() == 0
         if (p->getStatus() == 2)
         {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << " \t"
                       << p->getCommandIndex() << "/"
-                      << p->getNumCommands() << std::endl;
+                      << p->getActualCommands() << std::endl;
         }
     }
 
@@ -190,12 +191,14 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
     // Create CPUWorkers
     for (int i = 0; i < numCpu; ++i)
     {
+        std::cout << "Test 1" << std::endl;
         workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
     // Start threads with FCFS-style logic
     for (auto &worker : workers)
     {
+        std::cout << "Test 2" << std::endl;
         threads.emplace_back(
             &CPUWorker::runWorker,
             worker.get(),
@@ -205,24 +208,6 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
             std::ref(readyQueueMutex));
     }
 
-    // Wait for all to finish
-    while (!allProcessesDone())
-    {
-        UpdateProcessScreen();
-        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-    }
-
-    CPUWorker::stopAllWorkers();
-
-    for (auto &t : threads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-
-    std::cout << "All processes have been executed using FCFS scheduling." << std::endl;
     std::cout << "Enter a command: ";
 }
 

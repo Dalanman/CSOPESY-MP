@@ -84,7 +84,20 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
 
                 state = WorkerState::RUNNING;
                 currentProcess->execute();
-                std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
+
+                if (delayPerExec > 0)
+                {
+                    state = WorkerState::IDLE;
+                    for (int i = 0; i < delayPerExec; ++i)
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                    }
+                    state = WorkerState::RUNNING;
+                }
+                else
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                }
             }
 
             // When process is done
@@ -136,7 +149,19 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
 
                 state = WorkerState::RUNNING;
                 currentProcess->execute(); // one instruction
-                std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
+                if (delayPerExec > 0)
+                {
+                    state = WorkerState::IDLE;
+                    for (int i = 0; i < delayPerExec; ++i)
+                    {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                    }
+                    state = WorkerState::RUNNING;
+                }
+                else
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                }
                 executed++;
             }
 
