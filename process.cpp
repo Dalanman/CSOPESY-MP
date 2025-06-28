@@ -98,15 +98,6 @@ void Process::setRunTimeStamp()
 
 void Process::execute()
 {
-    // std::string filename = processName + ".txt";
-    // std::ofstream outFile(filename, std::ios::app);
-
-    // if (!outFile.is_open())
-    // {
-    //     std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
-    //     return;
-    // }
-
     // Initialize on first run
     if (status == READY)
     {
@@ -114,18 +105,18 @@ void Process::execute()
         setStatus(RUNNING);
     }
 
-    // if (isSleeping())
-    // {
-    //     // Log sleeping if you want
-    //     outFile << "(" << arrivalTimeStamp << ") "
-    //             << "Core: " << coreIndex << " "
-    //             << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
-    //             << processName << "\n";
-    //     outFile.close();
-    //     return; // Still sleeping, do nothing this tick
-    // }
+    if (isSleeping())
+    {
+        // Log sleeping if you want
+        std::ostringstream oss;
+        oss << "(" << arrivalTimeStamp << ") "
+            << "Core: " << coreIndex << " "
+            << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
+            << processName;
+        smiLogs.push_back(oss.str());
+        return; // Still sleeping, do nothing this tick
+    }
 
-    // std::cout << "Process " << processName << " is executing on core " << coreIndex << std::endl;
     if (commandIndex >= commandList.getTotalCommands())
     {
         setRunTimeStamp();
@@ -133,7 +124,6 @@ void Process::execute()
         return;
     }
 
-    // std::cout << "EXEC COMMAND: " << commandIndex << " CORE INDEX: " << coreIndex << std::endl;
     std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
 
     if (currentCommand->type == FOR)
@@ -142,24 +132,25 @@ void Process::execute()
         if (forCmd)
         {
             auto expanded = forCmd->unrollBody();
-
-            commandList.removeCommandAt(commandIndex);            // assume this exists
-            commandList.insertCommandsAt(commandIndex, expanded); // assume this exists
-
-            // outFile.close();
+            commandList.removeCommandAt(commandIndex);
+            commandList.insertCommandsAt(commandIndex, expanded);
             return;
         }
     }
 
-    // outFile << "(" << arrivalTimeStamp << ") "
-    //         << "Core: " << coreIndex << " "
-    //         << currentCommand->toString() << " "
-    //         << processName << "\n";
+    // Log the command execution
+    std::ostringstream oss;
+    oss << "(" << arrivalTimeStamp << ") "
+        << "Core: " << coreIndex << " "
+        << currentCommand->toString() << " "
+        << processName;
+    smiLogs.push_back(oss.str());
 
     switch (currentCommand->type)
     {
     case PRINT:
-        currentCommand->printExecute(&logs);
+        // Optionally, you can call printExecute with logs vector if needed
+        currentCommand->printExecute(runTimeStamp, &logs);
         break;
     case IO:
     {
@@ -187,6 +178,4 @@ void Process::execute()
         setRunTimeStamp();
         setStatus(FINISHED);
     }
-
-    // outFile.close();
 }

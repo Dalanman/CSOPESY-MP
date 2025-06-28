@@ -39,11 +39,12 @@ void CPUWorker::stop()
 }
 
 void CPUWorker::assignedProcess() {
-    isBusy = true;
+        isBusy = true;
 }
-bool CPUWorker::busyStatus(){
+bool CPUWorker::busyStatus() {
     return isBusy;
 }
+
 void CPUWorker::runWorker(int cpuTick) {
     while (!CPUWorker::stopFlag) {
         if (stopFlag.load()) {

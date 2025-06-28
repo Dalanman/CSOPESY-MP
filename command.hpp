@@ -25,7 +25,7 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::vector<std::string>* logList) { /* do nothing */ }
+    virtual void printExecute(std::string timestamp, std::vector<std::string>* logList) { /* do nothing */ }
     virtual void IOExecute() { /* do nothing */ }
     virtual std::string toString() const = 0;
 
@@ -40,10 +40,11 @@ public:
     PrintCommand(const std::string &msg)
         : Command(PRINT), message(msg) {}
 
-    void printExecute(std::vector<std::string>* logList) override
+    void printExecute(std::string timestamp, std::vector<std::string>* logList) override
     {
-        std::cout << message << std::endl;
-        logList->push_back(message);
+        std::string log = timestamp + " " + message;
+        //std::cout << message << std::endl;
+        logList->push_back(log);
     }
 
     std::string toString() const override
@@ -165,7 +166,7 @@ public:
         static std::vector<std::string> samples = {
             "FOR([PRINT(Hello World FROM " + name + "), PRINT(Hello World FROM " + name + ")], 2)",
             "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
-            "FOR([PRINT(Loop Start), SLEEP(2), PRINT(Loop End)], 4)",
+            "FOR([PRINT(Hello World FROM " + name + "), SLEEP(2), PRINT(Hello World FROM " + name + ")], 4)",
             "FOR([FOR([PRINT(Hello World FROM " + name + "), SLEEP(1)], 2)], 2)",
             "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(b)], 3)"};
         return samples[rand() % samples.size()];
@@ -234,7 +235,7 @@ public:
         }
     }
 
-    void printExecute(std::vector<std::string>* logs) override
+    void printExecute(std::string timestamp, std::vector<std::string>* logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
@@ -242,7 +243,7 @@ public:
             {
                 if (cmd->type == PRINT)
                 {
-                    cmd->printExecute(logs);
+                    cmd->printExecute(timestamp, logs); 
                 }
                 else if (cmd->type == IO)
                 {
@@ -250,7 +251,7 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(logs); // Recursive call for nested FORs
+                    cmd->printExecute(timestamp, logs); // Recursive call for nested FORs
                 }
             }
         }

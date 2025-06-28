@@ -68,7 +68,6 @@ std::string getCurrentTimeFormatted() {
 ConsoleManager::ConsoleManager() : pm(4) {
     std::thread Scheduler;
     std::thread dummyMaker;
-    int cpuTick = 500;
 }
 
 void ConsoleManager::run() {
@@ -94,13 +93,16 @@ bool ConsoleManager::isInSession() {
 }
 
 void ConsoleManager::printHeader() {
-    cout << R"(                               
-        ___ ___  ___  _ __   ___  ___ _   _ 
-       / __/ __|/ _ \| '_ \ / _ \/ __| | | |
-      | (__\__ \ (_) | |_) |  __/\__ \ |_| |
-       \___|___/\___/| .__/ \___||___/\__, |
-                     |_|              |___/ 
-    )" << endl;
+    std::cout << R"(
+     ______  __ __    ___       ____   ___    ____  ______   _____      ___    _____
+    |      ||  |  |  /  _]     /    | /   \  /    ||      | / ___/     /   \  / ___/
+    |      ||  |  | /  [_     |   __||     ||  o  ||      |(   \_     |     |(   \_ 
+    |_|  |_||  _  ||    _]    |  |  ||  O  ||     ||_|  |_| \__  |    |  O  | \__  |
+      |  |  |  |  ||   [_     |  |_ ||     ||  _  |  |  |   /  \ |    |     | /  \ |
+      |  |  |  |  ||     |    |     ||     ||  |  |  |  |   \    |    |     | \    |
+      |__|  |__|__||_____|    |___,_| \___/ |__|__|  |__|    \___|     \___/   \___|
+                                                                            
+    )" << std::endl;
     cout << GREEN << "\nHello, Welcome to CSOPESY commandline!" << RESET << endl;
     cout << YELLOW << "Type 'exit' to quit, 'clear' to clear the screen" << RESET << endl;
     cout << "Enter a command: ";
@@ -110,6 +112,7 @@ void ConsoleManager::initialize() {
     configReader = new ConfigReader();
     initialized = true;
 
+    cpuTick = 500;
     numCpu = configReader->getNumCpu();
     quantumCycle = configReader->getQuantum();
     BPF = configReader->getBPF();
@@ -127,25 +130,15 @@ bool ConsoleManager::handleCommand(const string& input) {
     if (inSession) {
         if (input == "process-smi") {
             if (activeProcess) {
-                cout << "\n=== Process SMI Report ===" << endl;
+                cout << "\n" << endl;
                 cout << "Process Name: " << activeProcess->getProcessName() << endl;
-                cout << "Process ID: " << activeProcess->getProcessId() << endl;
-                cout << "Arrival Time: " << activeProcess->getArrivalTimestamp() << endl;
-                cout << "Run Time: " << activeProcess->getRunTimestamp() << endl;
-
-                string logFile = activeProcess->getProcessName() + ".txt";
-                std::ifstream inFile(logFile);
-                if (inFile.is_open()) {
-                    cout << "\n--- Logs ---\n";
-                    std::string line;
-                    while (std::getline(inFile, line)) {
-                        cout << line << endl;
-                    }
-                    inFile.close();
+                cout << "ID: " << activeProcess->getProcessId() << endl;
+                cout << "Logs: " << endl;
+                for (const auto& log : activeProcess->getLogs()) {
+                    cout << log << endl;
                 }
-                else {
-                    cout << "No logs found.\n";
-                }
+                cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
+                cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
 
                 if (activeProcess->getStatus() == FINISHED) {
                     cout << "\nStatus: Finished!" << endl;
@@ -220,10 +213,23 @@ bool ConsoleManager::handleCommand(const string& input) {
                     else {
                         clearScreen();
                         cout << YELLOW << "Attached to process: " << processName << RESET << endl;
+                        cout << "\n" << endl;
+                        cout << "Process Name: " << activeProcess->getProcessName() << endl;
+                        cout << "ID: " << activeProcess->getProcessId() << endl;
+                        cout << "Logs: " << endl;
+                        for (const auto& log : activeProcess->getLogs()) {
+                            cout << log << endl;
+                        }
+                        cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
+                        cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
+
+                        if (activeProcess->getStatus() == FINISHED) {
+                            cout << "\nStatus: Finished!" << endl;
+                        }
                         inSession = true;
                     }
                 }
-                
+
                 cout << "\nEnter a command: ";
             }
 
@@ -238,9 +244,9 @@ bool ConsoleManager::handleCommand(const string& input) {
             {
                 // Create dummy processes
                 if (dummyMaker.joinable()) dummyMaker.join();
-                    dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
+                dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
                 if (Scheduler.joinable()) Scheduler.join();
-                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
 
                 cout << "\nEnter a command: ";
             }
@@ -311,7 +317,7 @@ bool ConsoleManager::handleCommand(const string& input) {
             }
             else if (input == "screen -ls")
             {
-                clearScreen();
+                // clearScreen();
                 pm.UpdateProcessScreen();
                 cout << "\nEnter a command: ";
             }

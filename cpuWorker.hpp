@@ -21,10 +21,13 @@ public:
     void stop();
     static void stopAllWorkers();
     void assignedProcess();
+    bool busyStatus();
+
+
     static std::mutex executionMutex;
     static std::condition_variable turnCV;
     static int turn;
-    bool busyStatus();
+
 private:
     int id;
     int CPU;

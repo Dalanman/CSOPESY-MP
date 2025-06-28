@@ -25,13 +25,14 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    while (!dummyStop)
+    while(!dummyStop)
     {
-        if (counterForBPF % BPF == 0)
-        {
-            // std::cout << "Created 1 process at " << counterForBPF << std::endl; For debugging
+        if (counterForBPF % BPF == 0) {
+            
+            // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
             // Generate a random number of instructions within the range
             numLines = rand() % (maxIns - minIns + 1) + minIns;
+            //std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
             if (i < 10)
                 name = "process0" + std::to_string(i);
@@ -74,7 +75,7 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 
 void ProcessManager::UpdateProcessScreen()
 {
-    int busy = getBusyCores();
+    int busy = getBusyCores(); 
     int available = getAvailableCores();
     int utilization = (100 * busy) / cores;
 
@@ -85,6 +86,7 @@ void ProcessManager::UpdateProcessScreen()
     std::cout << " " << std::endl;
     std::cout << " " << std::endl;
     std::cout << " " << std::endl;
+
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
@@ -114,6 +116,22 @@ void ProcessManager::UpdateProcessScreen()
                       << p->getActualCommands() << std::endl;
         }
     }
+}
+
+int ProcessManager::getBusyCores()
+{
+    int busy = 0;
+    for (auto& worker : workers)
+    {
+        if (worker->busyStatus())
+            busy++;
+    }
+    return busy;
+}
+
+int ProcessManager::getAvailableCores()
+{
+    return cores - getBusyCores();
 }
 
 std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::system_clock> &timePoint)
@@ -147,22 +165,6 @@ bool ProcessManager::allProcessesDone()
             return false;
     }
     return true;
-}
-
-int ProcessManager::getBusyCores()
-{
-    int busy = 0;
-    for (auto &worker : workers)
-    {
-        if (worker->busyStatus())
-            busy++;
-    }
-    return busy;
-}
-
-int ProcessManager::getAvailableCores()
-{
-    return cores - getBusyCores();
 }
 
 void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec)
@@ -221,6 +223,7 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
     for (auto &t : threads)
         if (t.joinable())
             t.join();
+
 }
 
 void ProcessManager::addToReadyQueue(Process *p)
@@ -243,6 +246,7 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
     // Start threads using runRRWorker with the shared readyQueue
     for (auto &worker : workers)
     {
+        worker->assignedProcess();
         threads.emplace_back(
             &CPUWorker::runRRWorker,
             worker.get(),

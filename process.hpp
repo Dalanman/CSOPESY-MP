@@ -53,6 +53,8 @@ public:
     string getRunTimestamp() const { return runTimeStamp; }
     string getArrivalTimestamp() const { return arrivalTimeStamp; }
     int getActualCommands() { return commandList.getSize(); }
+    vector<string> getsmiLogs() { return smiLogs; }
+    vector<string> getLogs() { return logs; }
 
     bool isSleeping() const
     {
@@ -91,6 +93,7 @@ private:
     bool isActive;
     int coreIndex; // index of core assigned to process
     int sleepRemainingTicks = 0;
+    vector<string> smiLogs;
 };
 
 #endif // PROCESS_H
