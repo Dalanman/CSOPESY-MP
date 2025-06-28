@@ -77,8 +77,8 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 void ProcessManager::UpdateProcessScreen()
 {
     int busy = 0;
-    int sleeping = 0, idle = 0;
-    int available = getAvailableCores();
+    int sleeping = 0, idle = 0, delayed = 0;
+    int available = 0;
     for (auto &worker : workers)
     {
         switch (worker->getState())
@@ -92,13 +92,18 @@ void ProcessManager::UpdateProcessScreen()
         case CPUWorker::WorkerState::IDLE:
             idle++;
             break;
+            case CPUWorker::WorkerState::DELAYED:
+            delayed++;
+            break;
         }
     }
 
     int utilization = (100 * busy) / cores;
-
+    int used = busy + delayed;
+    available = idle;
+    
     std::cout << "CPU utilization: " << utilization << std::endl;
-    std::cout << "Cores Used: " << busy << std::endl;
+    std::cout << "Cores Used: " << used << std::endl;
     std::cout << "Cores Available: " << available << std::endl;
     std::cout << " " << std::endl;
 

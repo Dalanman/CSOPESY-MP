@@ -15,7 +15,7 @@ class CPUWorker
 {
     
 public:
-    enum class WorkerState { IDLE, RUNNING, SLEEPING };
+    enum class WorkerState { IDLE, RUNNING, SLEEPING, DELAYED};
     CPUWorker(int id, int cores);
 
     void assignProcess(std::shared_ptr<Process> p);
