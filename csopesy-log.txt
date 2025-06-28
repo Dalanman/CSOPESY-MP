@@ -1,0 +1,20 @@
+==== CSOPESY CPU UTILIZATION REPORT ====
+Timestamp: 06/28/2025, 02:41:07 PM
+
+CPU Cores Available: 4
+Cores Currently in Use: 4
+
+-- Running Processes --
+Name: process00	Arrival: 06/28/2025 02:40:41PM	Core: 0	Progress: 187/981
+Name: process01	Arrival: 06/28/2025 02:40:42PM	Core: 0	Progress: 185/575
+Name: process02	Arrival: 06/28/2025 02:40:44PM	Core: 3	Progress: 143/638
+Name: process03	Arrival: 06/28/2025 02:40:45PM	Core: 3	Progress: 147/785
+Name: process04	Arrival: 06/28/2025 02:40:47PM	Core: 3	Progress: 112/763
+Name: process05	Arrival: 06/28/2025 02:40:48PM	Core: 0	Progress: 96/851
+Name: process06	Arrival: 06/28/2025 02:40:50PM	Core: 2	Progress: 100/843
+Name: process07	Arrival: 06/28/2025 02:40:52PM	Core: 1	Progress: 86/518
+Name: process08	Arrival: 06/28/2025 02:40:54PM	Core: 2	Progress: 68/542
+Name: process09	Arrival: 06/28/2025 02:40:55PM	Core: 2	Progress: 54/901
+Name: process10	Arrival: 06/28/2025 02:40:57PM	Core: 1	Progress: 40/831
+
+-- Finished Processes --
