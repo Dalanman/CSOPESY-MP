@@ -25,9 +25,10 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    while(!dummyStop)
+    while (!dummyStop)
     {
-        if (counterForBPF % BPF == 0) {
+        if (counterForBPF % BPF == 0)
+        {
             // std::cout << "Created 1 process at " << counterForBPF << std::endl; For debugging
             // Generate a random number of instructions within the range
             numLines = rand() % (maxIns - minIns + 1) + minIns;
@@ -73,6 +74,17 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 
 void ProcessManager::UpdateProcessScreen()
 {
+    int busy = getBusyCores();
+    int available = getAvailableCores();
+    int utilization = (100 * busy) / cores;
+
+    std::cout << "CPU utilization: " << utilization << std::endl;
+    std::cout << "Cores Used: " << busy << std::endl;
+    std::cout << "Cores Available: " << available << std::endl;
+    std::cout << " " << std::endl;
+    std::cout << " " << std::endl;
+    std::cout << " " << std::endl;
+    std::cout << " " << std::endl;
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
@@ -137,6 +149,22 @@ bool ProcessManager::allProcessesDone()
     return true;
 }
 
+int ProcessManager::getBusyCores()
+{
+    int busy = 0;
+    for (auto &worker : workers)
+    {
+        if (worker->busyStatus())
+            busy++;
+    }
+    return busy;
+}
+
+int ProcessManager::getAvailableCores()
+{
+    return cores - getBusyCores();
+}
+
 void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec)
 {
     workers.clear();
@@ -177,6 +205,7 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
             {
                 if (!worker->hasProcess())
                 {
+                    worker->assignedProcess();
                     p->setStatus(RUNNING);
                     p->setCoreIndex(worker->getId());
                     p->setArrivalTime();
@@ -192,7 +221,6 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
     for (auto &t : threads)
         if (t.joinable())
             t.join();
-
 }
 
 void ProcessManager::addToReadyQueue(Process *p)

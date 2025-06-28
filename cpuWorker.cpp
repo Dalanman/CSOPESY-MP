@@ -38,6 +38,12 @@ void CPUWorker::stop()
     turnCV.notify_all();
 }
 
+void CPUWorker::assignedProcess() {
+    isBusy = true;
+}
+bool CPUWorker::busyStatus(){
+    return isBusy;
+}
 void CPUWorker::runWorker(int cpuTick) {
     while (!CPUWorker::stopFlag) {
         if (stopFlag.load()) {

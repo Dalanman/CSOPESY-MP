@@ -25,7 +25,8 @@ public:
     void stopDummy(){
         dummyStop = true;
     }
-
+    int getBusyCores();
+    int getAvailableCores();
 private:
     int cores;
     std::vector<std::shared_ptr<Process>> process;  // Created processes
