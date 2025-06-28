@@ -11,17 +11,17 @@
 
 class CPUWorker {
 public:
-    CPUWorker(int id, std::shared_ptr<Process> proc, int cores);
+    CPUWorker(int id, int cores);
 
     void assignProcess(std::shared_ptr<Process> p);
     bool hasProcess() const;
     int getId() const;
-    void runWorker(int cpuTick);
+    void runWorker(int cpuTick, int delayPerExec);
     void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process*>& readyQueue, std::mutex& readyQueueMutex);
     void stop();
     static void stopAllWorkers();
-    void assignedProcess();
     bool busyStatus();
+    void assignedProcess();
 
 
     static std::mutex executionMutex;

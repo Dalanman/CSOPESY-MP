@@ -8,13 +8,9 @@ std::condition_variable CPUWorker::turnCV;
 int CPUWorker::turn = 0;
 std::atomic<bool> CPUWorker::stopFlag{false};
 
-CPUWorker::CPUWorker(int id, std::shared_ptr<Process> proc, int cores)
-    : id(id), process(proc), CPU(cores) {}
+CPUWorker::CPUWorker(int id, int cores)
+    : id(id), CPU(cores) {}
 
-void CPUWorker::assignProcess(std::shared_ptr<Process> p)
-{
-    process = p;
-}
 
 bool CPUWorker::hasProcess() const
 {
@@ -38,14 +34,20 @@ void CPUWorker::stop()
     turnCV.notify_all();
 }
 
+void CPUWorker::assignProcess(std::shared_ptr<Process> p) {
+    process = p;
+    isBusy = true; // Make sure to mark it busy here
+}
+
 void CPUWorker::assignedProcess() {
         isBusy = true;
 }
+
 bool CPUWorker::busyStatus() {
     return isBusy;
 }
 
-void CPUWorker::runWorker(int cpuTick) {
+void CPUWorker::runWorker(int cpuTick, int delayPerExec) {
     while (!CPUWorker::stopFlag) {
         if (stopFlag.load()) {
             if (process && process->getStatus() != FINISHED) {
@@ -78,7 +80,7 @@ void CPUWorker::runWorker(int cpuTick) {
                     continue;
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
 
                 if (process->getStatus() == FINISHED) {
                     process = nullptr;

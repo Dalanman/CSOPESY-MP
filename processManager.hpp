@@ -18,6 +18,9 @@ public:
     std::string toString(const std::chrono::time_point<std::chrono::system_clock>& timePoint);
     void executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
     void cancelAll();
+    void setCore(int numCpu) {
+        cores = numCpu;
+    }
     int getCores() const { return cores; };
     std::vector<std::shared_ptr<Process>> getAllProcesses() const { return process; }
     void addToReadyQueue(Process* p);

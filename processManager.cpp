@@ -83,20 +83,17 @@ void ProcessManager::UpdateProcessScreen()
     std::cout << "Cores Used: " << busy << std::endl;
     std::cout << "Cores Available: " << available << std::endl;
     std::cout << " " << std::endl;
-    std::cout << " " << std::endl;
-    std::cout << " " << std::endl;
-    std::cout << " " << std::endl;
 
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Running processes: " << std::endl;
 
     for (const auto &p : process)
     {
-        if (p->getStatus() == 2 || p->getStatus() == 1 || p->getStatus() == 0)
+        if (p->getStatus() == 2)
         {
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
-                      << "Core: " << p->getCoreIndex() << "\t"
+                      << "Core: " << p->getCoreIndex() << " \t"
                       << p->getCommandIndex() << "/"
                       << p->getNumCommands() << std::endl;
         }
@@ -175,12 +172,12 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
 
     for (int i = 0; i < cores; ++i)
     {
-        workers.emplace_back(std::make_unique<CPUWorker>(i, nullptr, cores));
+        workers.emplace_back(std::make_unique<CPUWorker>(i, cores));
     }
 
     for (auto &worker : workers)
     {
-        threads.emplace_back(&CPUWorker::runWorker, worker.get(), cpuTick);
+        threads.emplace_back(&CPUWorker::runWorker, worker.get(), cpuTick, delayPerExec);
     }
 
     while (!allProcessesDone())
@@ -207,7 +204,7 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
             {
                 if (!worker->hasProcess())
                 {
-                    worker->assignedProcess();
+  
                     p->setStatus(RUNNING);
                     p->setCoreIndex(worker->getId());
                     p->setArrivalTime();
@@ -240,7 +237,7 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
     // Create CPUWorkers (but don't assign specific processes)
     for (int i = 0; i < numCpu; ++i)
     {
-        workers.emplace_back(std::make_unique<CPUWorker>(i, nullptr, numCpu));
+        workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
     // Start threads using runRRWorker with the shared readyQueue
@@ -257,12 +254,6 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
             std::ref(readyQueueMutex));
     }
 
-    // Hindi na naca-call since at the start, wala pang processes
-    while (!allProcessesDone())
-    {
-        UpdateProcessScreen();
-        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-    }
 
     // Stop all workers (if needed for now, they exit when processes finish)
 

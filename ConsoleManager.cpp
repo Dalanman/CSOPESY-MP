@@ -65,7 +65,7 @@ std::string getCurrentTimeFormatted() {
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager() : pm(4) {
+ConsoleManager::ConsoleManager() : pm(numCpu) {
     std::thread Scheduler;
     std::thread dummyMaker;
 }
@@ -113,12 +113,14 @@ void ConsoleManager::initialize() {
     initialized = true;
 
     cpuTick = 500;
+
     numCpu = configReader->getNumCpu();
     quantumCycle = configReader->getQuantum();
     BPF = configReader->getBPF();
     DelayPerExec = configReader->getDelayPerExec();
     MinIns = configReader->getMinIns();
     MaxIns = configReader->getMaxIns();
+    pm.setCore(numCpu);
 }
 
 void readConfig() {
@@ -249,7 +251,18 @@ bool ConsoleManager::handleCommand(const string& input) {
                 if (dummyMaker.joinable()) dummyMaker.join();
                 dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
                 if (Scheduler.joinable()) Scheduler.join();
-                   Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                    
+                if (configReader->getSchedulerType() == 0)
+                {
+                    // std::cout << "Executing FCFS" << std::endl;
+                    Scheduler = std::thread(&ProcessManager::executeFCFS, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                }
+                else 
+                {
+                    // std::cout << "Executing RR" << std::endl;
+                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                }
+              
 
                 cout << "\nEnter a command: ";
             }
