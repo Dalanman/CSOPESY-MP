@@ -11,7 +11,6 @@ std::atomic<bool> CPUWorker::stopFlag{false};
 CPUWorker::CPUWorker(int id, int cores)
     : id(id), CPU(cores) {}
 
-
 bool CPUWorker::hasProcess() const
 {
     return process && process->getStatus() != FINISHED && process->getStatus() != CANCELLED;
@@ -34,67 +33,70 @@ void CPUWorker::stop()
     turnCV.notify_all();
 }
 
-void CPUWorker::assignProcess(std::shared_ptr<Process> p) {
+void CPUWorker::assignProcess(std::shared_ptr<Process> p)
+{
     process = p;
     isBusy = true; // Make sure to mark it busy here
 }
 
-void CPUWorker::assignedProcess() {
-        isBusy = true;
+void CPUWorker::assignedProcess()
+{
+    isBusy = true;
 }
 
-bool CPUWorker::busyStatus() {
+bool CPUWorker::busyStatus()
+{
     return isBusy;
 }
 
-void CPUWorker::runWorker(int cpuTick, int delayPerExec) {
-    while (!CPUWorker::stopFlag) {
-        if (stopFlag.load()) {
-            if (process && process->getStatus() != FINISHED) {
-                process->setStatus(CANCELLED);
+void CPUWorker::runWorker(int cpuTick, int delayPerExec,
+                          std::queue<Process *> &readyQueue,
+                          std::mutex &readyQueueMutex)
+{
+    while (!CPUWorker::stopFlag.load())
+    {
+        Process *currentProcess = nullptr;
+
+        {
+            std::lock_guard<std::mutex> lock(readyQueueMutex);
+            if (!readyQueue.empty())
+            {
+                currentProcess = readyQueue.front();
+                readyQueue.pop();
             }
-            break;
         }
 
-        if (process) {
-            if (process->isSleeping()) {
-                process->tickSleep();
+        if (currentProcess)
+        {
+            currentProcess->setCoreIndex(this->id);
+            currentProcess->setArrivalTime();
+            currentProcess->setStatus(RUNNING);
 
-                if (!process->isSleeping()) {
-                    process->setStatus(READY);
-                    process = nullptr;
+            while (currentProcess->getStatus() != FINISHED)
+            {
+                if (currentProcess->isSleeping())
+                {
+                    state = WorkerState::SLEEPING;
+                    currentProcess->tickSleep();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                    continue; // Wait out the sleep
                 }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                continue;
-            }
-
-            if (process->getStatus() == RUNNING) {
-                std::unique_lock<std::mutex> lock(executionMutex);
-                turnCV.wait(lock, [this] { return turn == id; });
-
-                process->execute();
-
-                if (process->isSleeping()) {
-                    process->tickSleep(); // Set up sleep and start ticking
-                    continue;
-                }
-
+                state = WorkerState::RUNNING;
+                currentProcess->execute();
                 std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
-
-                if (process->getStatus() == FINISHED) {
-                    process = nullptr;
-                }
-
-                turn = (turn + 1) % CPU;
-                turnCV.notify_all();
             }
-        } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+
+            // When process is done
+            state = WorkerState::IDLE;
+        }
+        else
+        {
+            state = WorkerState::IDLE;
+            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); // idle wait
         }
     }
 }
-
 
 void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                             std::queue<Process *> &readyQueue,
@@ -122,15 +124,17 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
             {
                 if (currentProcess->isSleeping())
                 {
+                    state = WorkerState::SLEEPING;
                     currentProcess->tickSleep();
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
 
-                    // RR pushes back if sleeping
+                    // Push back to queue
                     std::lock_guard<std::mutex> lock(readyQueueMutex);
                     readyQueue.push(currentProcess);
-                    break; // leave quantum loop
+                    break;
                 }
 
+                state = WorkerState::RUNNING;
                 currentProcess->execute(); // one instruction
                 std::this_thread::sleep_for(std::chrono::milliseconds(delayPerExec));
                 executed++;
@@ -141,11 +145,13 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 std::lock_guard<std::mutex> lock(readyQueueMutex);
                 readyQueue.push(currentProcess);
             }
+
+            state = WorkerState::IDLE;
         }
         else
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); // idle wait
+            state = WorkerState::IDLE;
+            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 }

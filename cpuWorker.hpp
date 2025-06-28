@@ -9,21 +9,25 @@
 #include <queue>
 #include "process.hpp"
 
-class CPUWorker {
+
+
+class CPUWorker
+{
+    
 public:
+    enum class WorkerState { IDLE, RUNNING, SLEEPING };
     CPUWorker(int id, int cores);
 
     void assignProcess(std::shared_ptr<Process> p);
     bool hasProcess() const;
     int getId() const;
-    void runWorker(int cpuTick, int delayPerExec);
-    void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process*>& readyQueue, std::mutex& readyQueueMutex);
+    void runWorker(int cpuTick, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex);
+    void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex);
     void stop();
     static void stopAllWorkers();
     bool busyStatus();
     void assignedProcess();
-
-
+    WorkerState getState() const { return state.load(); }
     static std::mutex executionMutex;
     static std::condition_variable turnCV;
     static int turn;
@@ -35,4 +39,5 @@ private:
     int DELAY = 500;
     static std::atomic<bool> stopFlag;
     std::atomic<bool> isBusy = false;
+    std::atomic<WorkerState> state = WorkerState::IDLE;
 };

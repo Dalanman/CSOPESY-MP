@@ -25,14 +25,15 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    while(!dummyStop)
+    while (!dummyStop)
     {
-        if (counterForBPF % BPF == 0) {
-            
+        if (counterForBPF % BPF == 0)
+        {
+
             // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
             // Generate a random number of instructions within the range
             numLines = rand() % (maxIns - minIns + 1) + minIns;
-            //std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
+            // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
             if (i < 10)
                 name = "process0" + std::to_string(i);
@@ -75,8 +76,25 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 
 void ProcessManager::UpdateProcessScreen()
 {
-    int busy = getBusyCores(); 
+    int busy = 0;
+    int sleeping = 0, idle = 0;
     int available = getAvailableCores();
+    for (auto &worker : workers)
+    {
+        switch (worker->getState())
+        {
+        case CPUWorker::WorkerState::RUNNING:
+            busy++;
+            break;
+        case CPUWorker::WorkerState::SLEEPING:
+            sleeping++;
+            break;
+        case CPUWorker::WorkerState::IDLE:
+            idle++;
+            break;
+        }
+    }
+
     int utilization = (100 * busy) / cores;
 
     std::cout << "CPU utilization: " << utilization << std::endl;
@@ -118,7 +136,7 @@ void ProcessManager::UpdateProcessScreen()
 int ProcessManager::getBusyCores()
 {
     int busy = 0;
-    for (auto& worker : workers)
+    for (auto &worker : workers)
     {
         if (worker->busyStatus())
             busy++;
@@ -168,59 +186,44 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
 {
     workers.clear();
     threads.clear();
-    std::unordered_set<int> assignedProcessIds;
 
-    for (int i = 0; i < cores; ++i)
+    // Create CPUWorkers
+    for (int i = 0; i < numCpu; ++i)
     {
-        workers.emplace_back(std::make_unique<CPUWorker>(i, cores));
+        workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
+    // Start threads with FCFS-style logic
     for (auto &worker : workers)
     {
-        threads.emplace_back(&CPUWorker::runWorker, worker.get(), cpuTick, delayPerExec);
+        threads.emplace_back(
+            &CPUWorker::runWorker,
+            worker.get(),
+            cpuTick,
+            delayPerExec,
+            std::ref(readyQueue),
+            std::ref(readyQueueMutex));
     }
 
+    // Wait for all to finish
     while (!allProcessesDone())
     {
-        std::vector<std::shared_ptr<Process>> readyQueue;
-
-        for (auto &p : process)
-        {
-            if (p->getStatus() == READY && !assignedProcessIds.count(p->getProcessId()))
-            {
-                readyQueue.push_back(p);
-            }
-        }
-
-        std::sort(readyQueue.begin(), readyQueue.end(),
-                  [](auto &a, auto &b)
-                  {
-                      return a->getCreationTimestamp() < b->getCreationTimestamp();
-                  });
-
-        for (auto &p : readyQueue)
-        {
-            for (auto &worker : workers)
-            {
-                if (!worker->hasProcess())
-                {
-  
-                    p->setStatus(RUNNING);
-                    p->setCoreIndex(worker->getId());
-                    p->setArrivalTime();
-                    worker->assignProcess(p);
-                    assignedProcessIds.insert(p->getProcessId());
-                    break;
-                }
-            }
-        }
+        UpdateProcessScreen();
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 
     CPUWorker::stopAllWorkers();
-    for (auto &t : threads)
-        if (t.joinable())
-            t.join();
 
+    for (auto &t : threads)
+    {
+        if (t.joinable())
+        {
+            t.join();
+        }
+    }
+
+    std::cout << "All processes have been executed using FCFS scheduling." << std::endl;
+    std::cout << "Enter a command: ";
 }
 
 void ProcessManager::addToReadyQueue(Process *p)
@@ -253,7 +256,6 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
             std::ref(readyQueue),
             std::ref(readyQueueMutex));
     }
-
 
     // Stop all workers (if needed for now, they exit when processes finish)
 
