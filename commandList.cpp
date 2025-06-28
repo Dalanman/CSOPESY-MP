@@ -53,18 +53,36 @@ std::vector<std::string> splitNestedCommands(const std::string& input) {
     return result;
 }
 
+std::string trim(const std::string& str) {
+    size_t start = str.find_first_not_of(" \t\r\n");
+    size_t end = str.find_last_not_of(" \t\r\n");
+
+    if (start == std::string::npos) return ""; // string is all spaces
+    return str.substr(start, end - start + 1);
+}
+
+
 bool CommandList::parseCommands(std::vector<std::string> inputCommands) {
     totalCommands = inputCommands.size();
-
+    
     for (std::string line : inputCommands) {
         line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 
         if (line.find("PRINT(") == 0 && line.back() == ')') {
-            std::string msg = line.substr(6, line.size() - 7);
+            // Don't trim spaces inside the message
+            size_t start = line.find('(');
+            size_t end = line.rfind(')');
+            if (start == std::string::npos || end == std::string::npos || start >= end)
+                return false;
+
+            std::string msg = line.substr(start + 1, end - start - 1);
             commands.push_back(std::make_shared<PrintCommand>(msg));
+            continue;
         }
 
-        else if (line.find("DECLARE(") == 0 && line.back() == ')') {
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
+
+        if (line.find("DECLARE(") == 0 && line.back() == ')') {
             std::string args = line.substr(8, line.size() - 9);
             size_t comma = args.find(',');
             if (comma == std::string::npos) return false;

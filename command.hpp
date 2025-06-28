@@ -40,10 +40,67 @@ public:
     PrintCommand(const std::string &msg)
         : Command(PRINT), message(msg) {}
 
+    std::string insertSmartSpaces(const std::string& input) {
+        std::string result;
+        const std::string keywords[] = { "from", "process" };
+
+        for (size_t i = 0; i < input.size(); ++i) {
+            // Check for keyword boundary
+            for (const std::string& kw : keywords) {
+                if (input.substr(i, kw.size()) == kw && i > 0 && std::isalpha(input[i - 1])) {
+                    result += ' ';
+                    break; // insert space only once per position
+                }
+            }
+
+            char curr = input[i];
+
+            if (i > 0) {
+                char prev = input[i - 1];
+
+                // Insert space between lower->Upper
+                if (std::islower(prev) && std::isupper(curr)) {
+                    result += ' ';
+                }
+                // Insert space between alpha <-> digit (except process00 which is already handled)
+                else if ((std::isalpha(prev) && std::isdigit(curr)) ||
+                    (std::isdigit(prev) && std::isalpha(curr))) {
+                    result += ' ';
+                }
+            }
+
+            result += curr;
+        }
+
+        return result;
+    }
+
     void printExecute(std::string timestamp, std::vector<std::string>* logList) override
     {
-        std::string log = timestamp + " " + message;
-        //std::cout << message << std::endl;
+        std::string output;
+
+        const std::string prefix = "Valuefrom:";
+
+        if (message.rfind(prefix, 0) == 0)
+        {
+            std::string varName = message.substr(prefix.length());
+            varName.erase(0, varName.find_first_not_of(" \t"));
+
+            std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
+            uint16_t val = 0;
+
+            if (GlobalSymbols::symbolTable.find(varName) != GlobalSymbols::symbolTable.end()) {
+                val = GlobalSymbols::symbolTable[varName];
+            }
+
+            output = "Value from: " + varName + " = " + std::to_string(val);
+        }
+        else
+        {
+            output = insertSmartSpaces(message);
+        }
+
+        std::string log = timestamp + " " + output;
         logList->push_back(log);
     }
 
@@ -164,11 +221,11 @@ public:
     static std::string randomCommand(std::string name)
     {
         static std::vector<std::string> samples = {
-            "FOR([PRINT(Hello World FROM " + name + "), PRINT(Hello World FROM " + name + ")], 2)",
+            "FOR([PRINT(Hello World from " + name + "), PRINT(Hello World from " + name + ")], 2)",
             "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
-            "FOR([PRINT(Hello World FROM " + name + "), SLEEP(2), PRINT(Hello World FROM " + name + ")], 4)",
-            "FOR([FOR([PRINT(Hello World FROM " + name + "), SLEEP(1)], 2)], 2)",
-            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(b)], 3)"};
+            "FOR([PRINT(Hello World from " + name + "), SLEEP(2), PRINT(Hello World from " + name + ")], 4)",
+            "FOR([FOR([PRINT(Hello World from " + name + "), SLEEP(1)], 2)], 2)",
+            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(Value from:b)], 3)"};
         return samples[rand() % samples.size()];
     }
     void addCommand(std::shared_ptr<Command> cmd)

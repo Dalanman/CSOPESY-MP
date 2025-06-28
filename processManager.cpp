@@ -53,7 +53,7 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
                     cmdStr = IOCommand::randomCommand();
                     break;
                 case 1:
-                    cmdStr = "PRINT(HELLO WORLD FROM " + name + ")";
+                    cmdStr = "PRINT(Hello World from " + name + ")";
                     break;
                 case 2:
                     cmdStr = ForCommand::randomCommand(name);
@@ -98,7 +98,7 @@ void ProcessManager::UpdateProcessScreen()
                       << p->getArrivalTimestamp() << "\t"
                       << "Core: " << p->getCoreIndex() << "\t"
                       << p->getCommandIndex() << "/"
-                      << p->getActualCommands() << std::endl;
+                      << p->getNumCommands() << std::endl;
         }
     }
 
@@ -112,8 +112,8 @@ void ProcessManager::UpdateProcessScreen()
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Finished\t"
-                      << p->getActualCommands() << "/"
-                      << p->getActualCommands() << std::endl;
+                      << p->getNumCommands() << "/"
+                      << p->getNumCommands() << std::endl;
         }
     }
 }

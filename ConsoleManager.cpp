@@ -137,6 +137,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                 for (const auto& log : activeProcess->getLogs()) {
                     cout << log << endl;
                 }
+                cout << "\n" << endl;
                 cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
                 cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
 
@@ -158,7 +159,8 @@ bool ConsoleManager::handleCommand(const string& input) {
         else {
             cout << "> Unknown command in session. Try 'process-smi' or 'exit'." << endl;
         }
-        cout << "\nEnter a command: ";
+        if(inSession)
+            cout << "\nEnter a command: ";
         return true;
     }
 
@@ -220,6 +222,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                         for (const auto& log : activeProcess->getLogs()) {
                             cout << log << endl;
                         }
+                        cout << "\n" << endl;
                         cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
                         cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
 
@@ -246,7 +249,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                 if (dummyMaker.joinable()) dummyMaker.join();
                 dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
                 if (Scheduler.joinable()) Scheduler.join();
-                Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                   Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
 
                 cout << "\nEnter a command: ";
             }

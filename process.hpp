@@ -55,6 +55,7 @@ public:
     int getActualCommands() { return commandList.getSize(); }
     vector<string> getsmiLogs() { return smiLogs; }
     vector<string> getLogs() { return logs; }
+    int getNumCommands() { return numCommands; }
 
     bool isSleeping() const
     {

@@ -138,19 +138,32 @@ void Process::execute()
         }
     }
 
+    setRunTimeStamp();
     // Log the command execution
-    std::ostringstream oss;
-    oss << "(" << arrivalTimeStamp << ") "
-        << "Core: " << coreIndex << " "
-        << currentCommand->toString() << " "
-        << processName;
-    smiLogs.push_back(oss.str());
+    if (currentCommand->type == PRINT)
+    {
+        std::ostringstream oss;
+        std::string cmdStr = currentCommand->toString();
+        std::string printParam;
+        size_t firstQuote = cmdStr.find('\"');
+        size_t lastQuote = cmdStr.rfind('\"');
+        if (firstQuote != std::string::npos && lastQuote != std::string::npos && lastQuote > firstQuote) {
+            printParam = cmdStr.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+        }
+        else {
+            printParam = cmdStr; // para may laman lang ; mama mo
+        }
+        oss << "(" << getRunTimestamp() << ") "
+            << "Core: " << coreIndex << " "
+            << printParam;
+        smiLogs.push_back(oss.str());
+    }
 
     switch (currentCommand->type)
     {
     case PRINT:
         // Optionally, you can call printExecute with logs vector if needed
-        currentCommand->printExecute(runTimeStamp, &logs);
+        currentCommand->printExecute(getRunTimestamp(), &logs);
         break;
     case IO:
     {
