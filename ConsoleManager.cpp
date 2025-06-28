@@ -188,7 +188,7 @@ bool ConsoleManager::handleCommand(const string& input) {
             }
         }
         else {
-            if (input.substr(0, 9) == "screen -r" || input.substr(0, 9) == "screen -s") {
+            if (input.substr(0, 9) == "screen -r") {
 
                 if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
                     // if no "process" name
@@ -237,7 +237,18 @@ bool ConsoleManager::handleCommand(const string& input) {
 
                 cout << "\nEnter a command: ";
             }
-
+            else if (input.substr(0, 9) == "screen -s") {
+                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
+                    // if no "process" name
+                    // clearScreen();
+                    cout << RED << "> Error: Missing process name for 'screen -s' command." << RESET << endl;
+                }
+                else {
+                    pm.makeDummy(input.substr(10), cpuTick, MinIns, MaxIns, BPF);
+                    cout << GREEN << "Process " << input.substr(10) << " started successfully." << RESET << endl;
+                }
+                cout << "\nEnter a command: ";
+            }
 
             else if (input == "scheduler-stop")
             {

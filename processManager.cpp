@@ -18,7 +18,7 @@
 void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF)
 {
     int numLines = 0;
-    std::string name;
+    // std::string name;
     int assignedCore = -1;
     int i = 0;
     int counterForBPF = 0;
@@ -140,11 +140,11 @@ void ProcessManager::UpdateProcessScreen()
         }
     }
 
-    int utilization = (100 * busy) / cores;
+    int utilization = (100 * (busy + delayed)) / cores;
     int used = busy + delayed;
     available = idle;
 
-    std::cout << "CPU utilization: " << utilization << std::endl;
+    std::cout << "CPU utilization: " << utilization << "%" << std::endl;
     std::cout << "Cores Used: " << used << std::endl;
     std::cout << "Cores Available: " << available << std::endl;
     std::cout << " " << std::endl;
@@ -238,14 +238,14 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
     // Create CPUWorkers
     for (int i = 0; i < numCpu; ++i)
     {
-        std::cout << "Test 1" << std::endl;
+        // std::cout << "Test 1" << std::endl;
         workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
     // Start threads with FCFS-style logic
     for (auto &worker : workers)
     {
-        std::cout << "Test 2" << std::endl;
+        // std::cout << "Test 2" << std::endl;
         threads.emplace_back(
             &CPUWorker::runWorker,
             worker.get(),
