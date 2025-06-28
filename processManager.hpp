@@ -12,6 +12,7 @@ public:
     ProcessManager(int numCores) : cores(numCores) {};
 
     void makeDummies(int cpuTick, int minIns, int maxIns, int BPF);
+    void makeDummy(int cpuTick, int minIns, int maxIns, int BPF);
     void addProcess(std::shared_ptr<Process> p);
     void UpdateProcessScreen();
     bool allProcessesDone();

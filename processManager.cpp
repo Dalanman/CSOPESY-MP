@@ -15,6 +15,53 @@
 #include <cstdlib> // For srand and rand
 #include <ctime>   // For time
 
+void ProcessManager::makeDummy(int cpuTick, int minIns, int maxIns, int BPF)
+{
+    int numLines = 0;
+    std::string name;
+    int assignedCore = -1;
+    int i = 0;
+    int counterForBPF = 0;
+    // Seed the random number generator
+    srand(static_cast<unsigned int>(time(nullptr))); // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
+    // Generate a random number of instructions within the range
+    numLines = rand() % (maxIns - minIns + 1) + minIns;
+    // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
+
+    if (i < 10)
+        name = "process0" + std::to_string(i);
+    else
+        name = "process" + std::to_string(i);
+
+    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+    addProcess(proc);
+
+    for (int j = 0; j < numLines; j++)
+    {
+        std::string cmdStr;
+        int type = rand() % 3; // 0: IO, 1: PRINT, 2: FOR
+
+        switch (type)
+        {
+        case 0:
+            cmdStr = IOCommand::randomCommand();
+            break;
+        case 1:
+            cmdStr = "PRINT(Hello World from " + name + ")";
+            break;
+        case 2:
+            cmdStr = ForCommand::randomCommand(name);
+            break;
+        }
+
+        proc->addCommand(cmdStr);
+    }
+
+    proc->parse();
+    addToReadyQueue(proc.get());
+    i++;
+}
+
 void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
 {
     int numLines = 0;
@@ -92,7 +139,7 @@ void ProcessManager::UpdateProcessScreen()
         case CPUWorker::WorkerState::IDLE:
             idle++;
             break;
-            case CPUWorker::WorkerState::DELAYED:
+        case CPUWorker::WorkerState::DELAYED:
             delayed++;
             break;
         }
@@ -101,7 +148,7 @@ void ProcessManager::UpdateProcessScreen()
     int utilization = (100 * busy) / cores;
     int used = busy + delayed;
     available = idle;
-    
+
     std::cout << "CPU utilization: " << utilization << std::endl;
     std::cout << "Cores Used: " << used << std::endl;
     std::cout << "Cores Available: " << available << std::endl;
