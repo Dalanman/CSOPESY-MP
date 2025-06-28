@@ -112,6 +112,94 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
         }
 
         counterForBPF++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick * 15));
+    }
+}
+
+void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF)
+{
+    int numLines = 0;
+    int assignedCore = -1;
+    int i = 0;
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    // Generate random number of instructions
+    numLines = rand() % (maxIns - minIns + 1) + minIns;
+
+    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+    addProcess(proc);
+
+    // Always start with DECLARE(x, 0)
+    proc->addCommand("DECLARE(x, 0)");
+
+    for (int j = 1; j < numLines; ++j)
+    {
+        //std::cout << "Test 1" << std::endl;
+        if (j % 2 == 1)
+        {
+            int randomAdd = rand() % 10 + 1;
+            //std::cout << "Test 2" << std::endl;
+            proc->addCommand("ADD(x, x, " + std::to_string(randomAdd) + ")");
+        }
+        else
+        {
+            //std::cout << "Test 3" << std::endl;
+            proc->addCommand("PRINT(Value from:x)");
+        }
+    }
+
+    proc->parse();
+    addToReadyQueue(proc.get());
+}
+
+void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BPF)
+{
+    int numLines = 0;
+    std::string name;
+    int assignedCore = -1;
+    int i = 0;
+    int counterForBPF = 0;
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    while (!dummyStop)
+    {
+        if (counterForBPF % BPF == 0)
+        {
+            numLines = rand() % (maxIns - minIns + 1) + minIns;
+
+            if (i < 10)
+                name = "process0" + std::to_string(i);
+            else
+                name = "process" + std::to_string(i);
+
+            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+
+            // Always start with DECLARE(x, 0)
+            proc->addCommand("DECLARE(x, 0)");
+
+            // Fill remaining instructions
+            for (int j = 1; j < numLines; ++j)
+            {
+                if (j % 2 == 1)
+                {
+                    int randomAdd = rand() % 10 + 1;
+                    proc->addCommand("ADD(x, x, " + std::to_string(randomAdd) + ")");
+                }
+                else
+                {
+                    proc->addCommand("PRINT(Value from:x)");
+                }
+            }
+
+            proc->parse();
+            addProcess(proc);
+            addToReadyQueue(proc.get());
+            i++;
+        }
+
+        counterForBPF++;
         std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
     }
 }
@@ -179,6 +267,78 @@ void ProcessManager::UpdateProcessScreen()
                       << p->getNumCommands() << std::endl;
         }
     }
+}
+
+void ProcessManager::ReportUtil() {
+    std::ofstream logFile("csopesy-log.txt", std::ios::out | std::ios::trunc);
+    if (!logFile.is_open()) {
+        std::cerr << "Failed to open csopesy-log.txt for writing." << std::endl;
+        return;
+    }
+
+    int busy = 0;
+    int sleeping = 0, idle = 0, delayed = 0;
+    int available = 0;
+    for (auto& worker : workers)
+    {
+        switch (worker->getState())
+        {
+        case CPUWorker::WorkerState::RUNNING:
+            busy++;
+            break;
+        case CPUWorker::WorkerState::SLEEPING:
+            sleeping++;
+            break;
+        case CPUWorker::WorkerState::IDLE:
+            idle++;
+            break;
+        case CPUWorker::WorkerState::DELAYED:
+            delayed++;
+            break;
+        }
+    }
+
+    int utilization = (cores > 0) ? (100 * (busy + delayed)) / cores : 0;
+    int used = busy + delayed;
+    available = idle;
+
+    logFile << "CPU utilization: " << utilization << "%" << std::endl;
+    logFile << "Cores Used: " << used << std::endl;
+    logFile << "Cores Available: " << available << std::endl;
+    logFile << " " << std::endl;
+
+    logFile << "----------------------------------" << std::endl;
+    logFile << "Running processes: " << std::endl;
+
+    for (const auto& p : process)
+    {
+        if (p->getStatus() == 2)
+        {
+            logFile << p->getProcessName() << "\t"
+                << p->getArrivalTimestamp() << "\t"
+                << "Core: " << p->getCoreIndex() << " \t"
+                << p->getCommandIndex() << "/"
+                << p->getActualCommands() << std::endl;
+        }
+    }
+
+    logFile << "----------------------------------" << std::endl;
+    logFile << "Finished processes: " << std::endl;
+
+    for (const auto& p : process)
+    {
+        if (p->getStatus() == 3)
+        {
+            logFile << p->getProcessName() << "\t"
+                << p->getArrivalTimestamp() << "\t"
+                << "Finished\t"
+                << p->getNumCommands() << "/"
+                << p->getNumCommands() << std::endl;
+        }
+    }
+
+    logFile.close();
+    std::cout << "Utilization report saved to csopesy - log.txt" << endl;
 }
 
 int ProcessManager::getBusyCores()

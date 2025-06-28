@@ -29,8 +29,12 @@ public:
     void stopDummy(){
         dummyStop = true;
     }
+
+    void ProcessManager::ReportUtil();
     int getBusyCores();
     int getAvailableCores();
+    void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
+    void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BPF);
 
 private:
     int cores;
