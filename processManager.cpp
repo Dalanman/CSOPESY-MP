@@ -15,7 +15,7 @@
 #include <cstdlib> // For srand and rand
 #include <ctime>   // For time
 
-void ProcessManager::makeDummy(int cpuTick, int minIns, int maxIns, int BPF)
+void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF)
 {
     int numLines = 0;
     std::string name;
@@ -27,11 +27,6 @@ void ProcessManager::makeDummy(int cpuTick, int minIns, int maxIns, int BPF)
     // Generate a random number of instructions within the range
     numLines = rand() % (maxIns - minIns + 1) + minIns;
     // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
-
-    if (i < 10)
-        name = "process0" + std::to_string(i);
-    else
-        name = "process" + std::to_string(i);
 
     auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
     addProcess(proc);
