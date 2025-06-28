@@ -98,14 +98,14 @@ void Process::setRunTimeStamp()
 
 void Process::execute()
 {
-    std::string filename = processName + ".txt";
-    std::ofstream outFile(filename, std::ios::app);
+    // std::string filename = processName + ".txt";
+    // std::ofstream outFile(filename, std::ios::app);
 
-    if (!outFile.is_open())
-    {
-        std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
-        return;
-    }
+    // if (!outFile.is_open())
+    // {
+    //     std::cerr << "Failed to open file for writing logs: " << filename << std::endl;
+    //     return;
+    // }
 
     // Initialize on first run
     if (status == READY)
@@ -114,16 +114,16 @@ void Process::execute()
         setStatus(RUNNING);
     }
 
-    if (isSleeping())
-    {
-        // Log sleeping if you want
-        outFile << "(" << arrivalTimeStamp << ") "
-                << "Core: " << coreIndex << " "
-                << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
-                << processName << "\n";
-        outFile.close();
-        return; // Still sleeping, do nothing this tick
-    }
+    // if (isSleeping())
+    // {
+    //     // Log sleeping if you want
+    //     outFile << "(" << arrivalTimeStamp << ") "
+    //             << "Core: " << coreIndex << " "
+    //             << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
+    //             << processName << "\n";
+    //     outFile.close();
+    //     return; // Still sleeping, do nothing this tick
+    // }
 
     // std::cout << "Process " << processName << " is executing on core " << coreIndex << std::endl;
     if (commandIndex >= commandList.getTotalCommands())
@@ -146,20 +146,20 @@ void Process::execute()
             commandList.removeCommandAt(commandIndex);            // assume this exists
             commandList.insertCommandsAt(commandIndex, expanded); // assume this exists
 
-            outFile.close();
+            // outFile.close();
             return;
         }
     }
 
-    outFile << "(" << arrivalTimeStamp << ") "
-            << "Core: " << coreIndex << " "
-            << currentCommand->toString() << " "
-            << processName << "\n";
+    // outFile << "(" << arrivalTimeStamp << ") "
+    //         << "Core: " << coreIndex << " "
+    //         << currentCommand->toString() << " "
+    //         << processName << "\n";
 
     switch (currentCommand->type)
     {
     case PRINT:
-        currentCommand->printExecute(outFile, &logs);
+        currentCommand->printExecute(&logs);
         break;
     case IO:
     {
@@ -188,5 +188,5 @@ void Process::execute()
         setStatus(FINISHED);
     }
 
-    outFile.close();
+    // outFile.close();
 }

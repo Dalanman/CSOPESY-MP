@@ -25,7 +25,7 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::ofstream &out, std::vector<std::string>* logList) { /* do nothing */ }
+    virtual void printExecute(std::vector<std::string>* logList) { /* do nothing */ }
     virtual void IOExecute() { /* do nothing */ }
     virtual std::string toString() const = 0;
 
@@ -40,9 +40,9 @@ public:
     PrintCommand(const std::string &msg)
         : Command(PRINT), message(msg) {}
 
-    void printExecute(std::ofstream &out, std::vector<std::string>* logList) override
+    void printExecute(std::vector<std::string>* logList) override
     {
-        out << message << std::endl;
+        std::cout << message << std::endl;
         logList->push_back(message);
     }
 
@@ -234,7 +234,7 @@ public:
         }
     }
 
-    void printExecute(std::ofstream &out, std::vector<std::string>* logs) override
+    void printExecute(std::vector<std::string>* logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
@@ -242,7 +242,7 @@ public:
             {
                 if (cmd->type == PRINT)
                 {
-                    cmd->printExecute(out, logs);
+                    cmd->printExecute(logs);
                 }
                 else if (cmd->type == IO)
                 {
@@ -250,7 +250,7 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(out, logs); // Recursive call for nested FORs
+                    cmd->printExecute(logs); // Recursive call for nested FORs
                 }
             }
         }
