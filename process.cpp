@@ -20,16 +20,7 @@ void Process::addCommand(string text)
 
 void Process::parse()
 {
-    //std::cout << "SIZE: " << commands.size() << std::endl;
     bool test = commandList.parseCommands(commands);
-    //std::cout << "ACTUAL SIZE: " << commandList.getSize() << endl;
-    //std::cout << test << endl;
-    /*
-    for (const auto &cmd : commands)
-    {
-        std::cout << "(" << cmd << ")" << std::endl;
-    }
-    */
 }
 
 void Process::setArrivalTime()
@@ -98,7 +89,6 @@ void Process::setRunTimeStamp()
 
 void Process::execute()
 {
-    // Initialize on first run
     if (status == READY)
     {
         setArrivalTime();
@@ -107,14 +97,13 @@ void Process::execute()
 
     if (isSleeping())
     {
-        // Log sleeping if you want
         std::ostringstream oss;
         oss << "(" << arrivalTimeStamp << ") "
             << "Core: " << coreIndex << " "
             << "SLEEPING (" << sleepRemainingTicks << " ticks left) "
             << processName;
         smiLogs.push_back(oss.str());
-        return; // Still sleeping, do nothing this tick
+        return;
     }
 
     if (commandIndex >= commandList.getTotalCommands())
@@ -139,7 +128,7 @@ void Process::execute()
     }
 
     setRunTimeStamp();
-    // Log the command execution
+
     if (currentCommand->type == PRINT)
     {
         std::ostringstream oss;
@@ -151,7 +140,7 @@ void Process::execute()
             printParam = cmdStr.substr(firstQuote + 1, lastQuote - firstQuote - 1);
         }
         else {
-            printParam = cmdStr; // para may laman lang ; mama mo
+            printParam = cmdStr;
         }
         oss << "(" << getRunTimestamp() << ") "
             << "Core: " << coreIndex << " "
@@ -162,16 +151,15 @@ void Process::execute()
     switch (currentCommand->type)
     {
     case PRINT:
-        // Optionally, you can call printExecute with logs vector if needed
-        currentCommand->printExecute(getRunTimestamp(), &logs);
+        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs);
+        commandIndex++;
         break;
     case IO:
     {
         auto ioCmd = std::dynamic_pointer_cast<IOCommand>(currentCommand);
         if (ioCmd && ioCmd->getOperation() == "SLEEP")
         {
-            sleepRemainingTicks = ioCmd->getSleepTicks(); // Start sleeping
-            // Don't increment commandIndex until sleep finishes
+            sleepRemainingTicks = ioCmd->getSleepTicks();
         }
         else
         {
@@ -181,10 +169,9 @@ void Process::execute()
     }
     break;
     default:
+        commandIndex++;
         break;
     }
-
-    commandIndex++;
 
     if (commandIndex >= commandList.getTotalCommands())
     {

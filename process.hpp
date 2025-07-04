@@ -57,6 +57,10 @@ public:
     vector<string> getLogs() { return logs; }
     int getNumCommands() { return numCommands; }
 
+    std::shared_ptr<Command> getCommand(int j) {
+        return commandList.getCommand(j);
+    };
+
     bool isSleeping() const
     {
         return sleepRemainingTicks > 0;

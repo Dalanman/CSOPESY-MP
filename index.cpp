@@ -15,11 +15,9 @@ int main() {
     string input;
     bool running = true;
     consoleManager = new ConsoleManager();
-    consoleManager->printHeader();  // init header
+    consoleManager->printHeader();  
 
     while (running) {
-
-        // Get the user input
         getline(cin, input);
 
         running = consoleManager->handleCommand(input);

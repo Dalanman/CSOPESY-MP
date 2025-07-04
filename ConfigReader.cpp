@@ -67,7 +67,7 @@ void ConfigReader::readConfig() {
     }
 
     file.close();
-    debug();
+    //debug();
 }
 
 void ConfigReader::debug() {

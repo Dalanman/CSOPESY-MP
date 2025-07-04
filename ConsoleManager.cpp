@@ -112,7 +112,7 @@ void ConsoleManager::initialize() {
     configReader = new ConfigReader();
     initialized = true;
 
-    cpuTick = 500;
+    cpuTick = 50;
 
     numCpu = configReader->getNumCpu();
     quantumCycle = configReader->getQuantum();
@@ -171,7 +171,6 @@ bool ConsoleManager::handleCommand(const string& input) {
         if (!initialized) {
             if (input == "initialize")
             {
-                // cout << "'Initialize' command recognized. Doing something.";
                 this->initialize();
                 cout << "Emulator initialized successfully." << endl;
                 cout << "\nEnter a command: ";
@@ -258,19 +257,16 @@ bool ConsoleManager::handleCommand(const string& input) {
             }
             else if (input == "scheduler-start")
             {
-                // Create dummy processes
                 if (dummyMaker.joinable()) dummyMaker.join();
                 dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF);
                 if (Scheduler.joinable()) Scheduler.join();
                     
                 if (configReader->getSchedulerType() == 0)
                 {
-                    // std::cout << "Executing FCFS" << std::endl;
                     Scheduler = std::thread(&ProcessManager::executeFCFS, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
                 }
                 else 
                 {
-                    // std::cout << "Executing RR" << std::endl;
                     Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
                 }
               
@@ -279,53 +275,7 @@ bool ConsoleManager::handleCommand(const string& input) {
             }
             else if (input == "report-util")
             {
-                std::ofstream reportFile("csopesy-log.txt");
-
-                if (!reportFile.is_open()) {
-                    cout << RED << "Failed to open csopesy-log.txt for writing." << RESET << endl;
-                }
-                else {
-                    reportFile << "==== CSOPESY CPU UTILIZATION REPORT ====\n";
-                    reportFile << "Timestamp: " << getCurrentTimeFormatted() << "\n\n";
-
-                    int cores = pm.getCores();
-                    reportFile << "CPU Cores Available: " << cores << "\n";
-
-                    // Count cores in use
-                    std::vector<bool> coreUsed(cores, false);
-                    for (const auto& proc : pm.getAllProcesses()) {
-                        if (proc->getStatus() == RUNNING) {
-                            coreUsed[proc->getCoreIndex()] = true;
-                        }
-                    }
-                    int used = std::count(coreUsed.begin(), coreUsed.end(), true);
-                    reportFile << "Cores Currently in Use: " << used << "\n\n";
-
-                    reportFile << "-- Running Processes --\n";
-                    for (const auto& proc : pm.getAllProcesses()) {
-                        if (proc->getStatus() == RUNNING) {
-                            reportFile << "Name: " << proc->getProcessName() << "\t"
-                                << "Arrival: " << proc->getArrivalTimestamp() << "\t"
-                                << "Core: " << proc->getCoreIndex() << "\t"
-                                << "Progress: " << proc->getCommandIndex() << "/"
-                                << proc->getTotalCommands() << "\n";
-                        }
-                    }
-
-                    reportFile << "\n-- Finished Processes --\n";
-                    for (const auto& proc : pm.getAllProcesses()) {
-                        if (proc->getStatus() == FINISHED) {
-                            reportFile << "Name: " << proc->getProcessName() << "\t"
-                                << "Arrival: " << proc->getArrivalTimestamp() << "\t"
-                                << "Finished\t"
-                                << "Total: " << proc->getTotalCommands() << "\n";
-                        }
-                    }
-
-                    reportFile.close();
-                    cout << GREEN << "Utilization report saved to csopesy-log.txt" << RESET << endl;
-                }
-
+                pm.ReportUtil();
                 cout << "\nEnter a command: ";
             }
 
@@ -337,9 +287,15 @@ bool ConsoleManager::handleCommand(const string& input) {
             else if (input == "exit")
             {
                 cout << "'exit' command recognized. Exiting program.\n";
+                exit(0);
+                pm.stopDummy();
+                pm.cancelAll();
+                if (dummyMaker.joinable()) dummyMaker.join();
                 if (Scheduler.joinable()) Scheduler.join();
                 stopInput = true;
                 if (InputHandler.joinable()) InputHandler.join();
+              
+
                 return false;
             }
             else if (input == "screen -ls")

@@ -1,20 +1,61 @@
-==== CSOPESY CPU UTILIZATION REPORT ====
-Timestamp: 06/28/2025, 02:41:07 PM
-
-CPU Cores Available: 4
-Cores Currently in Use: 4
-
--- Running Processes --
-Name: process00	Arrival: 06/28/2025 02:40:41PM	Core: 0	Progress: 187/981
-Name: process01	Arrival: 06/28/2025 02:40:42PM	Core: 0	Progress: 185/575
-Name: process02	Arrival: 06/28/2025 02:40:44PM	Core: 3	Progress: 143/638
-Name: process03	Arrival: 06/28/2025 02:40:45PM	Core: 3	Progress: 147/785
-Name: process04	Arrival: 06/28/2025 02:40:47PM	Core: 3	Progress: 112/763
-Name: process05	Arrival: 06/28/2025 02:40:48PM	Core: 0	Progress: 96/851
-Name: process06	Arrival: 06/28/2025 02:40:50PM	Core: 2	Progress: 100/843
-Name: process07	Arrival: 06/28/2025 02:40:52PM	Core: 1	Progress: 86/518
-Name: process08	Arrival: 06/28/2025 02:40:54PM	Core: 2	Progress: 68/542
-Name: process09	Arrival: 06/28/2025 02:40:55PM	Core: 2	Progress: 54/901
-Name: process10	Arrival: 06/28/2025 02:40:57PM	Core: 1	Progress: 40/831
-
--- Finished Processes --
+CPU utilization: 100%
+Cores Used: 16
+Cores Available: 0
+ 
+----------------------------------
+Running processes: 
+process00		Core: 10 	94/13890
+process01		Core: 8 	7/13571
+process02		Core: 1 	5/13608
+process03		Core: 11 	78/13708
+process04		Core: 14 	12/14371
+process05		Core: 4 	34/13876
+process06		Core: 10 	10/13377
+process07		Core: 7 	0/13781
+process08		Core: 6 	27/13984
+process09		Core: 0 	74/14070
+process10		Core: 14 	4/13562
+process11		Core: 5 	1/13595
+process12		Core: 12 	1/13554
+process13		Core: 4 	6/13371
+process14		Core: 9 	12/13922
+process15		Core: 1 	7/13704
+process16		Core: 7 	55/14149
+process17		Core: 2 	0/13682
+process18		Core: 11 	7/13523
+process19		Core: 0 	15/14058
+process20		Core: 3 	17/13951
+process21		Core: 15 	38/14035
+process22		Core: 12 	1/13478
+process23		Core: 2 	1/13861
+process24		Core: 13 	1/13118
+process25		Core: 5 	7/13849
+process26		Core: 10 	8/13218
+process27		Core: 9 	55/13383
+process28		Core: 2 	15/13829
+process29		Core: 15 	2/13453
+process30		Core: 0 	16/13840
+process31		Core: 5 	6/13688
+process32		Core: 9 	0/13909
+process33		Core: 8 	8/13723
+process34		Core: 2 	0/13489
+process35		Core: 15 	33/13628
+process36		Core: 8 	22/13446
+process37		Core: 0 	4/13446
+process38		Core: 4 	30/13655
+process39		Core: 8 	1/14270
+process40		Core: 3 	1/13521
+process41		Core: 6 	2/13812
+process42		Core: 7 	17/13916
+process43		Core: 13 	19/14232
+process44		Core: 3 	2/13267
+process45		Core: 1 	5/13910
+process46		Core: 11 	5/13331
+process47		Core: 12 	40/13719
+process48		Core: 13 	5/13456
+process49		Core: 14 	0/14045
+process50		Core: 6 	25/13805
+process51		Core: 12 	5/13706
+process52		Core: 9 	2/13511
+----------------------------------
+Finished processes: 

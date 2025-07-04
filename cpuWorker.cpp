@@ -131,6 +131,8 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         if (currentProcess)
         {
             currentProcess->setCoreIndex(this->id);
+            currentProcess->setStatus(RUNNING);
+            state = WorkerState::RUNNING;
             int executed = 0;
 
             while (executed < quantumCycle && currentProcess->getStatus() != FINISHED)
@@ -152,11 +154,21 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 if (delayPerExec > 0)
                 {
                     state = WorkerState::DELAYED;
-                    for (int i = 0; i < delayPerExec; ++i)
-                    {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                    if (delayPerExec == 1) {
+                        for (int i = 0; i < delayPerExec; ++i)
+                        {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                        }
+                        state = WorkerState::RUNNING;
                     }
-                    state = WorkerState::RUNNING;
+                    else {
+                        for (int i = 0; i < delayPerExec - 1; ++i)
+                        {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                        }
+                        state = WorkerState::RUNNING;
+                    }
                 }
                 else
                 {

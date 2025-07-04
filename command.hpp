@@ -25,7 +25,7 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::string timestamp, std::vector<std::string>* logList) { /* do nothing */ }
+    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) { /* do nothing */ }
     virtual void IOExecute() { /* do nothing */ }
     virtual std::string toString() const = 0;
 
@@ -37,8 +37,9 @@ class PrintCommand : public Command
     std::string message;
 
 public:
-    PrintCommand(const std::string &msg)
-        : Command(PRINT), message(msg) {}
+    PrintCommand(const std::string& msg)
+        : Command(PRINT), message(msg) {
+    }
 
     std::string insertSmartSpaces(const std::string& input) {
         std::string result;
@@ -75,7 +76,7 @@ public:
         return result;
     }
 
-    void printExecute(std::string timestamp, std::vector<std::string>* logList) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) override
     {
         std::string output;
 
@@ -100,7 +101,8 @@ public:
             output = insertSmartSpaces(message);
         }
 
-        std::string log = timestamp + " " + output;
+        std::string coreIndexStr = std::to_string(coreIndex);
+        std::string log = "(" + timestamp + ")" + " " + "Core:" + coreIndexStr + " " + "\"" + output + "\"";
         logList->push_back(log);
     }
 
@@ -116,7 +118,7 @@ public:
             "PRINT(Value is correct)",
             "PRINT(Looping...)",
             "PRINT(Execution done)",
-            "PRINT(Error occurred)"};
+            "PRINT(Error occurred)" };
         return samples[rand() % samples.size()];
     }
 };
@@ -133,13 +135,14 @@ class IOCommand : public Command
     bool isSleeping = false;
 
 public:
-    IOCommand(const std::string &op, const std::string &lhs = "", const std::string &rhs = "", const std::string &extra = "", uint16_t value = 0)
-        : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {}
+    IOCommand(const std::string& op, const std::string& lhs = "", const std::string& rhs = "", const std::string& extra = "", uint16_t value = 0)
+        : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {
+    }
 
     std::string getOperation() {
         return operation;
     }
-        void IOExecute() override
+    void IOExecute() override
     {
         std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex); // Ensure thread-safe access
 
@@ -194,7 +197,7 @@ public:
             "SUBTRACT(diff, x, 20)",
             "SUBTRACT(balance, y, z)",
             "SLEEP(5)",
-            "SLEEP(10)"};
+            "SLEEP(10)" };
         return samples[rand() % samples.size()];
     }
 
@@ -225,7 +228,7 @@ public:
             "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
             "FOR([PRINT(Hello World from " + name + "), SLEEP(2), PRINT(Hello World from " + name + ")], 4)",
             "FOR([FOR([PRINT(Hello World from " + name + "), SLEEP(1)], 2)], 2)",
-            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(Value from:b)], 3)"};
+            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(Value from:b)], 3)" };
         return samples[rand() % samples.size()];
     }
     void addCommand(std::shared_ptr<Command> cmd)
@@ -253,7 +256,7 @@ public:
 
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (auto &cmd : body)
+            for (auto& cmd : body)
             {
                 if (cmd->type == FOR)
                 {
@@ -279,7 +282,7 @@ public:
         }
 
         // Also push depth to any nested FORs already added
-        for (auto &cmd : body)
+        for (auto& cmd : body)
         {
             if (cmd->type == FOR)
             {
@@ -292,15 +295,15 @@ public:
         }
     }
 
-    void printExecute(std::string timestamp, std::vector<std::string>* logs) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (const auto &cmd : body)
+            for (const auto& cmd : body)
             {
                 if (cmd->type == PRINT)
                 {
-                    cmd->printExecute(timestamp, logs); 
+                    cmd->printExecute(timestamp, coreIndex, logs);
                 }
                 else if (cmd->type == IO)
                 {
@@ -308,7 +311,7 @@ public:
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(timestamp, logs); // Recursive call for nested FORs
+                    cmd->printExecute(timestamp, coreIndex, logs); // Recursive call for nested FORs
                 }
             }
         }
@@ -323,7 +326,7 @@ public:
     {
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (const auto &cmd : body)
+            for (const auto& cmd : body)
             {
                 if (cmd->type == IO)
                 {

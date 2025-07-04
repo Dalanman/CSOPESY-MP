@@ -32,6 +32,7 @@ public:
     static std::condition_variable turnCV;
     static int turn;
 
+
 private:
     int id;
     int CPU;

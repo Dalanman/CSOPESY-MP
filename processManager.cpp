@@ -23,7 +23,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     int i = 0;
     int counterForBPF = 0;
     // Seed the random number generator
-    srand(static_cast<unsigned int>(time(nullptr))); // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
+    srand(static_cast<unsigned int>(time(nullptr))); 
     // Generate a random number of instructions within the range
     numLines = rand() % (maxIns - minIns + 1) + minIns;
     // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
@@ -64,18 +64,13 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
     int assignedCore = -1;
     int i = 0;
     int counterForBPF = 0;
-    // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
 
     while (!dummyStop)
     {
         if (counterForBPF % BPF == 0)
         {
-
-            // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
-            // Generate a random number of instructions within the range
             numLines = rand() % (maxIns - minIns + 1) + minIns;
-            // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
             if (i < 10)
                 name = "process0" + std::to_string(i);
@@ -107,6 +102,93 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
             }
 
             proc->parse();
+            addToReadyQueue(proc.get());
+            i++;
+        }
+
+        counterForBPF++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick * 15));
+    }
+}
+
+void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF)
+{
+    int numLines = 0;
+    int assignedCore = -1;
+    int i = 0;
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    numLines = rand() % (maxIns - minIns + 1) + minIns;
+
+    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+    addProcess(proc);
+
+    // Always start with DECLARE(x, 0)
+    proc->addCommand("DECLARE(x, 0)");
+
+    for (int j = 1; j < numLines; ++j)
+    {
+        //std::cout << "Test 1" << std::endl;
+        if (j % 2 == 1)
+        {
+            int randomAdd = rand() % 10 + 1;
+            //std::cout << "Test 2" << std::endl;
+            proc->addCommand("ADD(x, x, " + std::to_string(randomAdd) + ")");
+        }
+        else
+        {
+            //std::cout << "Test 3" << std::endl;
+            proc->addCommand("PRINT(Value from:x)");
+        }
+    }
+
+    proc->parse();
+    addToReadyQueue(proc.get());
+}
+
+void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BPF)
+{
+    int numLines = 0;
+    std::string name;
+    int assignedCore = -1;
+    int i = 0;
+    int counterForBPF = 0;
+
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    while (!dummyStop)
+    {
+        if (counterForBPF % BPF == 0)
+        {
+            numLines = rand() % (maxIns - minIns + 1) + minIns;
+
+            if (i < 10)
+                name = "process0" + std::to_string(i);
+            else
+                name = "process" + std::to_string(i);
+
+            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+
+            // Always start with DECLARE(x, 0)
+            proc->addCommand("DECLARE(x, 0)");
+
+            // Fill remaining instructions
+            for (int j = 1; j < numLines; ++j)
+            {
+                if (j % 2 == 1)
+                {
+                    int randomAdd = rand() % 10 + 1;
+                    proc->addCommand("ADD(x, x, " + std::to_string(randomAdd) + ")");
+                }
+                else
+                {
+                    proc->addCommand("PRINT(Value from:x)");
+                }
+            }
+
+            proc->parse();
+            addProcess(proc);
             addToReadyQueue(proc.get());
             i++;
         }
@@ -181,6 +263,78 @@ void ProcessManager::UpdateProcessScreen()
     }
 }
 
+void ProcessManager::ReportUtil() {
+    std::ofstream logFile("csopesy-log.txt", std::ios::out | std::ios::trunc);
+    if (!logFile.is_open()) {
+        std::cerr << "Failed to open csopesy-log.txt for writing." << std::endl;
+        return;
+    }
+
+    int busy = 0;
+    int sleeping = 0, idle = 0, delayed = 0;
+    int available = 0;
+    for (auto& worker : workers)
+    {
+        switch (worker->getState())
+        {
+        case CPUWorker::WorkerState::RUNNING:
+            busy++;
+            break;
+        case CPUWorker::WorkerState::SLEEPING:
+            sleeping++;
+            break;
+        case CPUWorker::WorkerState::IDLE:
+            idle++;
+            break;
+        case CPUWorker::WorkerState::DELAYED:
+            delayed++;
+            break;
+        }
+    }
+
+    int utilization = (cores > 0) ? (100 * (busy + delayed)) / cores : 0;
+    int used = busy + delayed;
+    available = idle;
+
+    logFile << "CPU utilization: " << utilization << "%" << std::endl;
+    logFile << "Cores Used: " << used << std::endl;
+    logFile << "Cores Available: " << available << std::endl;
+    logFile << " " << std::endl;
+
+    logFile << "----------------------------------" << std::endl;
+    logFile << "Running processes: " << std::endl;
+
+    for (const auto& p : process)
+    {
+        if (p->getStatus() == 2)
+        {
+            logFile << p->getProcessName() << "\t"
+                << p->getArrivalTimestamp() << "\t"
+                << "Core: " << p->getCoreIndex() << " \t"
+                << p->getCommandIndex() << "/"
+                << p->getActualCommands() << std::endl;
+        }
+    }
+
+    logFile << "----------------------------------" << std::endl;
+    logFile << "Finished processes: " << std::endl;
+
+    for (const auto& p : process)
+    {
+        if (p->getStatus() == 3)
+        {
+            logFile << p->getProcessName() << "\t"
+                << p->getArrivalTimestamp() << "\t"
+                << "Finished\t"
+                << p->getNumCommands() << "/"
+                << p->getNumCommands() << std::endl;
+        }
+    }
+
+    logFile.close();
+    std::cout << "Utilization report saved to csopesy - log.txt" << endl;
+}
+
 int ProcessManager::getBusyCores()
 {
     int busy = 0;
@@ -199,13 +353,10 @@ int ProcessManager::getAvailableCores()
 
 std::string ProcessManager::toString(const std::chrono::time_point<std::chrono::system_clock> &timePoint)
 {
-    // Convert time_point to std::time_t
     std::time_t time = std::chrono::system_clock::to_time_t(timePoint);
 
-    // Convert to tm struct for formatting
     std::tm *tm_time = std::localtime(&time);
 
-    // Format the time into a string
     std::ostringstream oss;
     oss << std::put_time(tm_time, "%Y-%m-%d %H:%M:%S");
 
@@ -235,17 +386,13 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
     workers.clear();
     threads.clear();
 
-    // Create CPUWorkers
     for (int i = 0; i < numCpu; ++i)
     {
-        // std::cout << "Test 1" << std::endl;
         workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
-    // Start threads with FCFS-style logic
     for (auto &worker : workers)
     {
-        // std::cout << "Test 2" << std::endl;
         threads.emplace_back(
             &CPUWorker::runWorker,
             worker.get(),
@@ -269,13 +416,11 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
     workers.clear();
     threads.clear();
 
-    // Create CPUWorkers (but don't assign specific processes)
     for (int i = 0; i < numCpu; ++i)
     {
         workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
-    // Start threads using runRRWorker with the shared readyQueue
     for (auto &worker : workers)
     {
         worker->assignedProcess();
@@ -289,9 +434,6 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
             std::ref(readyQueueMutex));
     }
 
-    // Stop all workers (if needed for now, they exit when processes finish)
-
-    // Join all threads
     for (auto &t : threads)
     {
         if (t.joinable())
