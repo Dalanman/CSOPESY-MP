@@ -20,6 +20,10 @@ public:
 	int getDelayPerExec() { return delayPerExec; };
     int getMinIns() { return minIns; };
 	int getMaxIns() { return maxIns; };
+	int getMaxOverallMem() { return maxOverallMem; };
+	int getMemPerFrame() { return memPerFrame; };
+	int getMinMemPerProcess() { return minMemPerProcess; };
+	int getMaxMemPerProcess() { return maxMemPerProcess; };
 
 private:
 	int numCpu;
@@ -29,4 +33,8 @@ private:
 	int minIns;
 	int maxIns;
 	int delayPerExec;
+	int maxOverallMem;
+	int memPerFrame;
+	int minMemPerProcess;
+	int maxMemPerProcess;
 };

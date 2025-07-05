@@ -15,6 +15,10 @@ ConfigReader::ConfigReader()
     minIns = 0;
     maxIns = 0;
     delayPerExec = 0;
+    maxOverallMem = 0;
+	memPerFrame = 0;
+	minMemPerProcess = 0;
+	maxMemPerProcess = 0;
     readConfig();
 }
 
@@ -63,6 +67,18 @@ void ConfigReader::readConfig() {
         }
         else if (line.find("delay-per-exec") == 0) {
             delayPerExec = stoi(line.substr(15));  
+        }
+        else if (line.find("max-overall-mem") == 0){
+            maxOverallMem = stoi(line.substr(16));
+        }
+        else if (line.find("mem-per-frame") == 0){
+            memPerFrame = stoi(line.substr(14));
+        }
+        else if (line.find("min-mem-per-proc") == 0){
+            minMemPerProcess = stoi(line.substr(17));
+        }
+        else if (line.find("max-mem-per-proc") == 0){
+             maxMemPerProcess = stoi(line.substr(17));
         }
     }
 
