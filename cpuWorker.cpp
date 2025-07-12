@@ -111,6 +111,7 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
     }
 }
 
+// params to add(?): int maxOverallMem, int memPerFrame, int minMemPerProcess, int maxMemPerProcess
 void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                             std::queue<Process *> &readyQueue,
                             std::mutex &readyQueueMutex)
@@ -130,6 +131,15 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
 
         if (currentProcess)
         {
+            /* 
+                to add: 
+                    -> add process into memory
+                    -> check if memory is available
+                        -> if not, put process back into tail of readyqueue instead
+                        -> if yes, continue
+                    -> process stays in memory until finished
+
+            */
             currentProcess->setCoreIndex(this->id);
             currentProcess->setStatus(RUNNING);
             state = WorkerState::RUNNING;
@@ -137,6 +147,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
 
             while (executed < quantumCycle && currentProcess->getStatus() != FINISHED)
             {
+
                 if (currentProcess->isSleeping())
                 {
                     state = WorkerState::SLEEPING;
@@ -175,6 +186,8 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
                 }
                 executed++;
+
+                // to add: txt file printing stuff at the end of every quantum cycle (prob seperate function)
             }
 
             if (currentProcess->getStatus() != FINISHED && !currentProcess->isSleeping())

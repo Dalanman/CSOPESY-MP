@@ -120,6 +120,10 @@ void ConsoleManager::initialize() {
     DelayPerExec = configReader->getDelayPerExec();
     MinIns = configReader->getMinIns();
     MaxIns = configReader->getMaxIns();
+    maxOverallMem = configReader->getMaxOverallMem();
+    memPerFrame = configReader->getMemPerFrame();   
+    minMemPerProcess = configReader->getMinMemPerProcess();
+    maxMemPerProcess = configReader->getMaxMemPerProcess();
     pm.setCore(numCpu);
 }
 

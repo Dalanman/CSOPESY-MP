@@ -105,4 +105,8 @@ void ConfigReader::debug() {
     std::cout << "Minimum instructions: " << minIns << std::endl;
     std::cout << "Maximum instructions: " << maxIns << std::endl;
     std::cout << "Delay per execution: " << delayPerExec << std::endl;
+    std::cout << "Max overall memory: " << maxOverallMem << std::endl;
+    std::cout << "Memory per frame: " << memPerFrame << std::endl;
+    std::cout << "Minimum memory per process: " << minMemPerProcess << std::endl;
+    std::cout << "Maximum memory per process: " << maxMemPerProcess << std::endl;
 }
