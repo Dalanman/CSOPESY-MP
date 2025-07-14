@@ -29,6 +29,10 @@ private:
     int MinIns;
     int MaxIns;
     int cpuTick = 0;
+    int maxOverallMem;
+    int memPerFrame;
+    int minMemPerProcess;
+    int maxMemPerProcess;
 
 public:
     ConsoleManager();

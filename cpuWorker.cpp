@@ -115,6 +115,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                             std::queue<Process *> &readyQueue,
                             std::mutex &readyQueueMutex)
 {
+    int quantumCounter = 0;
     while (!CPUWorker::stopFlag.load())
     {
         Process *currentProcess = nullptr;
@@ -175,6 +176,29 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
                 }
                 executed++;
+            }
+
+            quantumCounter++;
+            std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
+            std::ofstream outFile(filename);
+            if (outFile.is_open())
+            {
+                outFile << "Timestamp: (" << currentProcess->getRunTimestamp() << ")" << std::endl;
+                outFile << "Number of processes in memory: X" << std::endl;
+                outFile << "Total external fragmentation in KB: X" << std::endl;
+                outFile << "" << std::endl;
+                outFile << "----end---- = X" << std::endl;
+                outFile << "" << std::endl;
+                outFile << "{PROCESS1 UPPER LIMIT}" << std::endl;
+                outFile << "PX" << std::endl;
+                outFile << "{PROCESS1 LOWER LIMIT}" << std::endl;
+                outFile << "" << std::endl;
+                outFile << "{PROCESS2 UPPER LIMIT}" << std::endl;
+                outFile << "PX" << std::endl;
+                outFile << "{PROCESS2 LOWER LIMIT}" << std::endl;
+                outFile << "" << std::endl;
+                outFile << "----start---- = X" << std::endl;
+                outFile.close();
             }
 
             if (currentProcess->getStatus() != FINISHED && !currentProcess->isSleeping())

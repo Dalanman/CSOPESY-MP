@@ -121,6 +121,10 @@ void ConsoleManager::initialize() {
     MinIns = configReader->getMinIns();
     MaxIns = configReader->getMaxIns();
     pm.setCore(numCpu);
+    maxOverallMem = configReader->getMaxOverallMem();
+    memPerFrame = configReader->getMemPerFrame();
+    minMemPerProcess = configReader->getMinMemPerProcess();
+    maxMemPerProcess = configReader->getMaxMemPerProcess();
 }
 
 void readConfig() {

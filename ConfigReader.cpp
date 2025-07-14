@@ -15,6 +15,10 @@ ConfigReader::ConfigReader()
     minIns = 0;
     maxIns = 0;
     delayPerExec = 0;
+    maxOverallMem = 0;
+    memPerFrame = 0;
+    minMemPerProcess = 0;
+    maxMemPerProcess = 0;
     readConfig();
 }
 
@@ -32,10 +36,10 @@ void ConfigReader::readConfig() {
     }
     while (std::getline(file, line)) {
         if (line.find("num-cpu") == 0) {
-            numCpu = stoi(line.substr(8));  
+            numCpu = stoi(line.substr(8));
         }
         else if (line.find("scheduler") == 0) {
-            std::string typeString = line.substr(10); 
+            std::string typeString = line.substr(10);
             if (typeString == "'fcfs'") {
                 schedulerType = SchedulerType::FCFS;
             }
@@ -50,24 +54,36 @@ void ConfigReader::readConfig() {
             }
         }
         else if (line.find("quantum-cycles") == 0) {
-            quantum = stoi(line.substr(15));  
+            quantum = stoi(line.substr(15));
         }
         else if (line.find("batch-process-freq") == 0) {
-            batchProcessFreq = stoi(line.substr(19));  
+            batchProcessFreq = stoi(line.substr(19));
         }
         else if (line.find("min-ins") == 0) {
-            minIns = stoi(line.substr(8)); 
+            minIns = stoi(line.substr(8));
         }
         else if (line.find("max-ins") == 0) {
-            maxIns = stoi(line.substr(8));  
+            maxIns = stoi(line.substr(8));
         }
         else if (line.find("delay-per-exec") == 0) {
-            delayPerExec = stoi(line.substr(15));  
+            delayPerExec = stoi(line.substr(15));
+        }
+        else if (line.find("max-overall-mem") == 0) {
+            maxOverallMem = stoi(line.substr(16));
+        }
+        else if (line.find("mem-per-frame") == 0) {
+            memPerFrame = stoi(line.substr(14));
+        }
+        else if (line.find("min-mem-per-proc") == 0) {
+            minMemPerProcess = stoi(line.substr(17));
+        }
+        else if (line.find("max-mem-per-proc") == 0) {
+            maxMemPerProcess = stoi(line.substr(17));
         }
     }
 
     file.close();
-    //debug();
+    debug();
 }
 
 void ConfigReader::debug() {
@@ -89,4 +105,8 @@ void ConfigReader::debug() {
     std::cout << "Minimum instructions: " << minIns << std::endl;
     std::cout << "Maximum instructions: " << maxIns << std::endl;
     std::cout << "Delay per execution: " << delayPerExec << std::endl;
+    std::cout << "Max overall memory: " << maxOverallMem << std::endl;
+    std::cout << "Memory per frame: " << memPerFrame << std::endl;
+    std::cout << "Minimum memory per process: " << minMemPerProcess << std::endl;
+    std::cout << "Maximum memory per process: " << maxMemPerProcess << std::endl;
 }
