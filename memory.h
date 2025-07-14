@@ -45,35 +45,6 @@ public:
         return std::string(memory.begin(), memory.end());
     }
 
-private:
-    size_t maxSize;
-    size_t allocatedSize;
-    std::vector<char> memory;
-    std::vector<bool> allocationMap;
-
-    bool canAllocateAt(size_t index, size_t size) const
-    {
-        if (index + size > maxSize)
-            return false;
-        for (size_t i = index; i < index + size; ++i)
-            if (allocationMap[i])
-                return false;
-        return true;
-    }
-
-    void allocateAt(size_t index, size_t size)
-    {
-        std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
-        std::fill(memory.begin() + index, memory.begin() + index + size, '#');
-        allocatedSize += size;
-    }
-
-    void deallocateAt(size_t index)
-    {
-        allocationMap[index] = false;
-        memory[index] = '.';
-    }
-
     size_t calculateExternalFragmentation(size_t minBlockSize) const
     {
         size_t totalFragmented = 0;
@@ -101,5 +72,34 @@ private:
         }
 
         return totalFragmented;
+    }
+
+private:
+    size_t maxSize;
+    size_t allocatedSize;
+    std::vector<char> memory;
+    std::vector<bool> allocationMap;
+
+    bool canAllocateAt(size_t index, size_t size) const
+    {
+        if (index + size > maxSize)
+            return false;
+        for (size_t i = index; i < index + size; ++i)
+            if (allocationMap[i])
+                return false;
+        return true;
+    }
+
+    void allocateAt(size_t index, size_t size)
+    {
+        std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
+        std::fill(memory.begin() + index, memory.begin() + index + size, '#');
+        allocatedSize += size;
+    }
+
+    void deallocateAt(size_t index)
+    {
+        allocationMap[index] = false;
+        memory[index] = '.';
     }
 };
