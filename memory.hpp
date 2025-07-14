@@ -2,41 +2,50 @@
 #include <vector>
 #include <unordered_map>
 #include <cstddef>
+#include <optional>
+
 class IMemoryAllocator
 {
 public:
-    virtual void *allocate(size_t size) = 0;
-    virtual void deallocate(void *ptr) = 0;
+    virtual void *allocate(size_t size, size_t processId) = 0;
+    virtual void deallocate(size_t processId) = 0;
     virtual std::string visualizeMemory() = 0;
 };
 
 class FlatMemoryAllocator : public IMemoryAllocator
 {
 public:
-    FlatMemoryAllocator(size_t maximumSize) : maxSize(maximumSize), allocatedSize(0),
-                                              memory(maximumSize, '.'), allocationMap(maximumSize, false)
-    {
-    }
+    FlatMemoryAllocator(size_t maximumSize)
+        : maxSize(maximumSize),
+          memory(maximumSize, '.'),
+          allocationMap(maximumSize, false) {}
 
-    void *allocate(size_t size) override
+    void *allocate(size_t size, size_t processId) override
     {
         for (size_t i = 0; i <= maxSize - size; ++i)
         {
             if (!allocationMap[i] && canAllocateAt(i, size))
             {
-                allocateAt(i, size);
+                allocateAt(i, size, processId);
                 return &memory[i];
             }
         }
         return nullptr;
     }
 
-    void deallocate(void *ptr) override
+    void deallocate(size_t processId) override
     {
-        size_t index = static_cast<char *>(ptr) - &memory[0];
-        if (allocationMap[index])
+        auto it = processAllocations.find(processId);
+        if (it != processAllocations.end())
         {
-            deallocateAt(index);
+            size_t start = it->second.startIndex;
+            size_t size = it->second.size;
+            for (size_t i = start; i < start + size; ++i)
+            {
+                allocationMap[i] = false;
+                memory[i] = '.';
+            }
+            processAllocations.erase(it);
         }
     }
 
@@ -45,61 +54,68 @@ public:
         return std::string(memory.begin(), memory.end());
     }
 
-    size_t calculateExternalFragmentation(size_t minBlockSize) const
+    size_t getProcessCount() const
+    {
+        return processAllocations.size();
+    }
+
+    size_t getExternalFragmentation(size_t minBlockSize) const
     {
         size_t totalFragmented = 0;
-        size_t currentFreeBlockSize = 0;
+        size_t currentFreeBlock = 0;
 
         for (bool allocated : allocationMap)
         {
             if (!allocated)
             {
-                ++currentFreeBlockSize;
+                ++currentFreeBlock;
             }
             else
             {
-                if (currentFreeBlockSize > 0 && currentFreeBlockSize < minBlockSize)
+                if (currentFreeBlock > 0 && currentFreeBlock < minBlockSize)
                 {
-                    totalFragmented += currentFreeBlockSize;
+                    totalFragmented += currentFreeBlock;
                 }
-                currentFreeBlockSize = 0;
+                currentFreeBlock = 0;
             }
         }
 
-        if (currentFreeBlockSize > 0 && currentFreeBlockSize < minBlockSize)
+        if (currentFreeBlock > 0 && currentFreeBlock < minBlockSize)
         {
-            totalFragmented += currentFreeBlockSize;
+            totalFragmented += currentFreeBlock;
         }
 
         return totalFragmented;
     }
 
 private:
+    struct ProcessInfo
+    {
+        size_t startIndex;
+        size_t size;
+    };
+
     size_t maxSize;
-    size_t allocatedSize;
     std::vector<char> memory;
     std::vector<bool> allocationMap;
+    std::unordered_map<size_t, ProcessInfo> processAllocations;
 
     bool canAllocateAt(size_t index, size_t size) const
     {
         if (index + size > maxSize)
             return false;
         for (size_t i = index; i < index + size; ++i)
+        {
             if (allocationMap[i])
                 return false;
+        }
         return true;
     }
 
-    void allocateAt(size_t index, size_t size)
+    void allocateAt(size_t index, size_t size, size_t processId)
     {
         std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
         std::fill(memory.begin() + index, memory.begin() + index + size, '#');
-        allocatedSize += size;
-    }
-
-    void deallocateAt(size_t index)
-    {
-        allocationMap[index] = false;
-        memory[index] = '.';
+        processAllocations[processId] = {index, size};
     }
 };
