@@ -119,7 +119,7 @@ public:
         std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
         std::tm timeInfo;
         localtime_s(&timeInfo, &timeStamp);
-        outFile << "Timestamp: " << std::put_time(&timeInfo, "%F %T") << "\n";
+        outFile << "Timestamp: " << "(" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")" << "\n";
 
         outFile << "Number of processes in memory: " << getProcessCount() << "\n";
 
@@ -129,7 +129,7 @@ public:
 
         // Print upper and lower memory address limits for each process
         outFile << "----end---- = 16384\n" << std::endl;
-  
+       
         std::vector<std::tuple<size_t, int, size_t>> blocks;
         for (const auto& entry : processAllocations) {
             int processId = entry.first;
@@ -150,7 +150,7 @@ public:
             outFile << lower_limit << "\n";
             outFile << "\n";
         }
-        outFile << "----start---- = 0" << std::endl;
+        outFile << "----start----- = 0" << std::endl;
         outFile.close();
     }
 
