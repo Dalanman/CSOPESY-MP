@@ -198,9 +198,9 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         }
 
         quantumCounter++;
-
+        memoryAllocator->getMemorySnapshot(quantumCounter);
         // Output memory snapshot
-        std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
+        /*std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
         std::ofstream outFile(filename);
         if (outFile.is_open())
         {
@@ -220,7 +220,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
             outFile << "" << std::endl;
             outFile << "----start---- = X" << std::endl;
             outFile.close();
-        }
+        }*/
 
 
         if (currentProcess->getStatus() == FINISHED)

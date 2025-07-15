@@ -4,6 +4,12 @@
 #include <unordered_map>
 #include <cstddef>
 #include <optional>
+#include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <ctime>
+#include <iostream>
+#include <algorithm>
 
 class IMemoryAllocator
 {
@@ -106,6 +112,47 @@ public:
         return nullptr;
     }
 
+    void getMemorySnapshot(int quantum) {
+        std::ofstream outFile("memory_stamp_" + std::to_string(quantum) + ".txt");
+
+        auto now = std::chrono::system_clock::now();
+        std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
+        std::tm timeInfo;
+        localtime_s(&timeInfo, &timeStamp);
+        outFile << "Timestamp: " << std::put_time(&timeInfo, "%F %T") << "\n";
+
+        outFile << "Number of processes in memory: " << getProcessCount() << "\n";
+
+        int tempExternalFragmentation = (4 - getProcessCount()) * 4096;
+        // getExternalFragmentation(16) returns 0 kaya ganito muna
+        outFile << "Total external fragmentation in KB: " << tempExternalFragmentation << " \n\n";
+
+        // Print upper and lower memory address limits for each process
+        outFile << "----end---- = 16384\n" << std::endl;
+  
+        std::vector<std::tuple<size_t, int, size_t>> blocks;
+        for (const auto& entry : processAllocations) {
+            int processId = entry.first;
+            const ProcessInfo& info = entry.second;
+            size_t lower_limit = info.startIndex;
+            size_t upper_limit = info.startIndex + info.size;
+            blocks.emplace_back(upper_limit, processId, lower_limit);
+        }
+        std::sort(blocks.begin(), blocks.end(), [](const auto& a, const auto& b) {
+            return std::get<0>(a) > std::get<0>(b); // descending by upper_limit
+        });
+        for (const auto& block : blocks) {
+            size_t upper_limit = std::get<0>(block);
+            int processId = std::get<1>(block);
+            size_t lower_limit = std::get<2>(block);
+            outFile << upper_limit << "\n";
+            outFile << "P" << processId << "\n";
+            outFile << lower_limit << "\n";
+            outFile << "\n";
+        }
+        outFile << "----start---- = 0" << std::endl;
+        outFile.close();
+    }
 
 
 private:
