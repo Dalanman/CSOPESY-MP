@@ -5,13 +5,15 @@
 #include <memory>
 #include <thread>
 #include <queue>
+#include <cstddef>
 #include "CPUWorker.hpp"
+#include "memory.hpp"
 
 class ProcessManager {
 public:
     ProcessManager(int numCores) : cores(numCores) {};
 
-    void makeDummies(int cpuTick, int minIns, int maxIns, int BPF);
+    void makeDummies(int cpuTick, int minIns, int maxIns, int BPF, size_t maxMemPerProcess);
     void makeDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
     void addProcess(std::shared_ptr<Process> p);
     void UpdateProcessScreen();
@@ -25,7 +27,7 @@ public:
     int getCores() const { return cores; };
     std::vector<std::shared_ptr<Process>> getAllProcesses() const { return process; }
     void addToReadyQueue(Process* p);
-    void executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
+    void executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec, std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void stopDummy(){
         dummyStop = true;
     }
@@ -35,6 +37,7 @@ public:
     int getAvailableCores();
     void makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
     void alternatingCase(int cpuTick, int minIns, int maxIns, int BPF);
+
 
 private:
     int cores;

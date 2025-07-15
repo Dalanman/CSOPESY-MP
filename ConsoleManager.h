@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <queue>
+#include "memory.hpp"
 #include "processManager.hpp"
 #include "ConfigReader.hpp"
 class ConsoleManager {
@@ -21,6 +22,8 @@ private:
     ConfigReader* configReader;
     // SymbolTable symbolTable;
     std::shared_ptr<Process> activeProcess = nullptr;
+    std::shared_ptr<FlatMemoryAllocator> memoryAllocator;
+
 
     int numCpu;
     int quantumCycle;

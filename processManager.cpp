@@ -28,7 +28,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     numLines = rand() % (maxIns - minIns + 1) + minIns;
     // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
     addProcess(proc);
 
     for (int j = 0; j < numLines; j++)
@@ -57,7 +57,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     i++;
 }
 
-void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
+void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, size_t maxMemPerProcess)
 {
     int numLines = 0;
     std::string name;
@@ -82,7 +82,7 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF)
             else
                 name = "process" + std::to_string(i);
 
-            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, maxMemPerProcess);
             addProcess(proc);
 
             for (int j = 0; j < numLines; j++)
@@ -127,7 +127,7 @@ void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int min
     // Generate random number of instructions
     numLines = rand() % (maxIns - minIns + 1) + minIns;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
     addProcess(proc);
 
     // Always start with DECLARE(x, 0)
@@ -174,7 +174,7 @@ void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BP
             else
                 name = "process" + std::to_string(i);
 
-            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines);
+            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
 
             // Always start with DECLARE(x, 0)
             proc->addCommand("DECLARE(x, 0)");
@@ -424,7 +424,8 @@ void ProcessManager::addToReadyQueue(Process *p)
     readyQueue.push(p);
 }
 
-void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec)
+//Pass the memoryAllocator here
+void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int delayPerExec, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     workers.clear();
     threads.clear();
@@ -446,7 +447,9 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
             quantumCycle,
             delayPerExec,
             std::ref(readyQueue),
-            std::ref(readyQueueMutex));
+            std::ref(readyQueueMutex),
+            memoryAllocator 
+        );
     }
 
     // Stop all workers (if needed for now, they exit when processes finish)

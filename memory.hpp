@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -7,8 +8,8 @@
 class IMemoryAllocator
 {
 public:
-    virtual void *allocate(size_t size, size_t processId) = 0;
-    virtual void deallocate(size_t processId) = 0;
+    virtual void* allocate(size_t size, int processId) = 0;
+    virtual void deallocate(int processId) = 0;
     virtual std::string visualizeMemory() = 0;
 };
 
@@ -17,10 +18,15 @@ class FlatMemoryAllocator : public IMemoryAllocator
 public:
     FlatMemoryAllocator(size_t maximumSize)
         : maxSize(maximumSize),
-          memory(maximumSize, '.'),
-          allocationMap(maximumSize, false) {}
+        memory(maximumSize, '.'),
+        allocationMap(maximumSize, false) {
+    }
 
-    void *allocate(size_t size, size_t processId) override
+    void setMaxMemorySize(int maximumSize) {
+        maxSize = maximumSize;
+    }
+
+    void* allocate(size_t size, int processId) override
     {
         for (size_t i = 0; i <= maxSize - size; ++i)
         {
@@ -33,7 +39,7 @@ public:
         return nullptr;
     }
 
-    void deallocate(size_t processId) override
+    void deallocate(int processId) override
     {
         auto it = processAllocations.find(processId);
         if (it != processAllocations.end())
@@ -88,6 +94,20 @@ public:
         return totalFragmented;
     }
 
+    bool hasAllocation(int processId) const {
+        return processAllocations.find(processId) != processAllocations.end();
+    }
+
+    void* getProcessMemoryPointer(int processId) const {
+        auto it = processAllocations.find(processId);
+        if (it != processAllocations.end()) {
+            return const_cast<char*>(&memory[it->second.startIndex]);
+        }
+        return nullptr;
+    }
+
+
+
 private:
     struct ProcessInfo
     {
@@ -98,7 +118,7 @@ private:
     size_t maxSize;
     std::vector<char> memory;
     std::vector<bool> allocationMap;
-    std::unordered_map<size_t, ProcessInfo> processAllocations;
+    std::unordered_map<int, ProcessInfo> processAllocations;  // changed to int
 
     bool canAllocateAt(size_t index, size_t size) const
     {
@@ -112,10 +132,10 @@ private:
         return true;
     }
 
-    void allocateAt(size_t index, size_t size, size_t processId)
+    void allocateAt(size_t index, size_t size, int processId)  // changed to int
     {
         std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
         std::fill(memory.begin() + index, memory.begin() + index + size, '#');
-        processAllocations[processId] = {index, size};
+        processAllocations[processId] = { index, size };
     }
 };

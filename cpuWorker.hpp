@@ -9,7 +9,7 @@
 #include <queue>
 #include <fstream> 
 #include "process.hpp"
-
+#include "memory.hpp"
 
 
 
@@ -24,7 +24,7 @@ public:
     bool hasProcess() const;
     int getId() const;
     void runWorker(int cpuTick, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex);
-    void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex);
+    void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex, std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void stop();
     static void stopAllWorkers();
     bool busyStatus();

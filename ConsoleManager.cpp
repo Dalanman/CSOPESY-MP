@@ -1,3 +1,4 @@
+#pragma once
 #include "ConsoleManager.h"
 #include "ConfigReader.hpp"
 #include <iostream>
@@ -112,7 +113,7 @@ void ConsoleManager::initialize() {
     configReader = new ConfigReader();
     initialized = true;
 
-    cpuTick = 50;
+    cpuTick = 100;
 
     numCpu = configReader->getNumCpu();
     quantumCycle = configReader->getQuantum();
@@ -125,6 +126,8 @@ void ConsoleManager::initialize() {
     memPerFrame = configReader->getMemPerFrame();
     minMemPerProcess = configReader->getMinMemPerProcess();
     maxMemPerProcess = configReader->getMaxMemPerProcess();
+
+    memoryAllocator = std::make_shared<FlatMemoryAllocator>(static_cast<size_t>(maxOverallMem));   // Declare memory allocator here after getting max overall memory
 }
 
 void readConfig() {
@@ -264,7 +267,7 @@ bool ConsoleManager::handleCommand(const string& input) {
             {
                 // Create dummy processes
                 if (dummyMaker.joinable()) dummyMaker.join();
-                dummyMaker = std::thread(&ProcessManager::alternatingCase, &pm, cpuTick, MinIns, MaxIns, BPF);
+                dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF, static_cast<size_t>(maxMemPerProcess));
                 if (Scheduler.joinable()) Scheduler.join();
                     
                 if (configReader->getSchedulerType() == 0)
@@ -275,7 +278,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                 else 
                 {
                     // std::cout << "Executing RR" << std::endl;
-                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                    Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec, memoryAllocator);
                 }
               
 

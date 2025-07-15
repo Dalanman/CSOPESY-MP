@@ -3,13 +3,17 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <cstddef>
 #include "commandList.hpp"
-Process::Process(const std::string &name, int id, int assignedCore, int totalInstructions)
+
+
+Process::Process(const std::string& name, int id, int assignedCore, int totalInstructions, size_t maxMemPerProcess)
     : processName(name),
-      processId(id),
-      coreIndex(assignedCore),
-      numCommands(totalInstructions),
-      commandList(totalInstructions)
+    processId(id),
+    coreIndex(assignedCore),
+    numCommands(totalInstructions),
+    commandList(totalInstructions),
+    memoryRequirement(maxMemPerProcess) //Add this
 {
 }
 
@@ -119,6 +123,7 @@ void Process::execute()
         return;
     }
 
+    // Finish if all commands are done
     if (commandIndex >= commandList.getTotalCommands())
     {
         setRunTimeStamp();
@@ -128,6 +133,7 @@ void Process::execute()
 
     std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
 
+    // Handle FOR unrolling safely
     if (currentCommand->type == FOR)
     {
         auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
@@ -136,7 +142,14 @@ void Process::execute()
             auto expanded = forCmd->unrollBody();
             commandList.removeCommandAt(commandIndex);
             commandList.insertCommandsAt(commandIndex, expanded);
-            return;
+            // Don't return early — let the loop fall through to execute next instruction
+            if (commandIndex >= commandList.getTotalCommands())
+            {
+                setRunTimeStamp();
+                setStatus(FINISHED);
+                return;
+            }
+            currentCommand = commandList.getCommand(commandIndex);  // refresh pointer
         }
     }
 
@@ -149,10 +162,12 @@ void Process::execute()
         std::string printParam;
         size_t firstQuote = cmdStr.find('\"');
         size_t lastQuote = cmdStr.rfind('\"');
-        if (firstQuote != std::string::npos && lastQuote != std::string::npos && lastQuote > firstQuote) {
+        if (firstQuote != std::string::npos && lastQuote != std::string::npos && lastQuote > firstQuote)
+        {
             printParam = cmdStr.substr(firstQuote + 1, lastQuote - firstQuote - 1);
         }
-        else {
+        else
+        {
             printParam = cmdStr;
         }
         oss << "(" << getRunTimestamp() << ") "
@@ -167,20 +182,23 @@ void Process::execute()
         currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs);
         commandIndex++;
         break;
+
     case IO:
     {
         auto ioCmd = std::dynamic_pointer_cast<IOCommand>(currentCommand);
         if (ioCmd && ioCmd->getOperation() == "SLEEP")
         {
             sleepRemainingTicks = ioCmd->getSleepTicks();
+            commandIndex++;
         }
         else
         {
             currentCommand->IOExecute();
             commandIndex++;
         }
+        break;
     }
-    break;
+
     default:
         commandIndex++;
         break;

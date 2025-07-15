@@ -8,6 +8,7 @@
 #include <ctime>
 #include <sstream>
 #include <iomanip>
+#include <cstddef>
 #include "commandList.hpp"
 #include "command.hpp"
 using namespace std;
@@ -25,7 +26,7 @@ class Process
 {
 public:
     // Constructor
-    Process(const std::string &name, int id, int assignedCore, int totalInstructions);
+    Process(const std::string &name, int id, int assignedCore, int totalInstructions, size_t maxMemPerProcess);
 
     // Public methods
     // void displayDetails() const;
@@ -56,6 +57,7 @@ public:
     vector<string> getsmiLogs() { return smiLogs; }
     vector<string> getLogs() { return logs; }
     int getNumCommands() { return numCommands; }
+    size_t getMemoryRequirement() { return memoryRequirement; }
 
     std::shared_ptr<Command> getCommand(int j) {
         return commandList.getCommand(j);
@@ -99,6 +101,8 @@ private:
     int coreIndex; // index of core assigned to process
     int sleepRemainingTicks = 0;
     vector<string> smiLogs;
+
+    size_t memoryRequirement = 0;
 };
 
 #endif // PROCESS_H

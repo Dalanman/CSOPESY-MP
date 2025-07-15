@@ -1,5 +1,6 @@
 #include "CPUWorker.hpp"
 #include "process.hpp"
+#include "memory.hpp"
 
 // values on initialization
 std::mutex CPUWorker::executionMutex;
@@ -111,14 +112,17 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
     }
 }
 
+
+// Pass memory manager here. Process only proceeds if memory can handle.
 void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
-                            std::queue<Process *> &readyQueue,
-                            std::mutex &readyQueueMutex)
+    std::queue<Process*>& readyQueue,
+    std::mutex& readyQueueMutex,
+    std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     int quantumCounter = 0;
     while (!CPUWorker::stopFlag.load())
     {
-        Process *currentProcess = nullptr;
+        Process* currentProcess = nullptr;
 
         {
             std::lock_guard<std::mutex> lock(readyQueueMutex);
@@ -129,90 +133,108 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
             }
         }
 
-        if (currentProcess)
-        {
-            currentProcess->setCoreIndex(this->id);
-            currentProcess->setStatus(RUNNING);
-            state = WorkerState::RUNNING;
-            int executed = 0;
-
-            while (executed < quantumCycle && currentProcess->getStatus() != FINISHED)
-            {
-                if (currentProcess->isSleeping())
-                {
-                    state = WorkerState::SLEEPING;
-                    currentProcess->tickSleep();
-                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-
-                    // Push back to queue
-                    std::lock_guard<std::mutex> lock(readyQueueMutex);
-                    readyQueue.push(currentProcess);
-                    break;
-                }
-
-                state = WorkerState::RUNNING;
-                currentProcess->execute(); // one instruction
-                if (delayPerExec > 0)
-                {
-                    state = WorkerState::DELAYED;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                    if (delayPerExec == 1) {
-                        for (int i = 0; i < delayPerExec; ++i)
-                        {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                        }
-                        state = WorkerState::RUNNING;
-                    }
-                    else {
-                        for (int i = 0; i < delayPerExec - 1; ++i)
-                        {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                        }
-                        state = WorkerState::RUNNING;
-                    }
-                }
-                else
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
-                }
-                executed++;
-            }
-
-            quantumCounter++;
-            std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
-            std::ofstream outFile(filename);
-            if (outFile.is_open())
-            {
-                outFile << "Timestamp: (" << currentProcess->getRunTimestamp() << ")" << std::endl;
-                outFile << "Number of processes in memory: X" << std::endl;
-                outFile << "Total external fragmentation in KB: X" << std::endl;
-                outFile << "" << std::endl;
-                outFile << "----end---- = X" << std::endl;
-                outFile << "" << std::endl;
-                outFile << "{PROCESS1 UPPER LIMIT}" << std::endl;
-                outFile << "PX" << std::endl;
-                outFile << "{PROCESS1 LOWER LIMIT}" << std::endl;
-                outFile << "" << std::endl;
-                outFile << "{PROCESS2 UPPER LIMIT}" << std::endl;
-                outFile << "PX" << std::endl;
-                outFile << "{PROCESS2 LOWER LIMIT}" << std::endl;
-                outFile << "" << std::endl;
-                outFile << "----start---- = X" << std::endl;
-                outFile.close();
-            }
-
-            if (currentProcess->getStatus() != FINISHED && !currentProcess->isSleeping())
-            {
-                std::lock_guard<std::mutex> lock(readyQueueMutex);
-                readyQueue.push(currentProcess);
-            }
-
-            state = WorkerState::IDLE;
-        }
-        else
+        if (!currentProcess)
         {
             state = WorkerState::IDLE;
             std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+            continue;
         }
+
+        int pid = currentProcess->getProcessId();
+        size_t memSize = currentProcess->getMemoryRequirement();
+
+        // Check if already allocated
+        if (!memoryAllocator->hasAllocation(pid))
+        {
+            void* mem = memoryAllocator->allocate(memSize, pid);
+            if (!mem)
+            {
+                //std::cout << "[Worker " << id << "] Memory full, requeued process " << pid << "." << std::endl;
+                std::lock_guard<std::mutex> lock(readyQueueMutex);
+                readyQueue.push(currentProcess);
+                continue;
+            }
+            else
+            {
+                //std::cout << "[Worker " << id << "] Allocated memory for process " << pid << "." << std::endl;
+            }
+        }
+
+        currentProcess->setCoreIndex(this->id);
+        currentProcess->setStatus(RUNNING);
+        state = WorkerState::RUNNING;
+        int executed = 0;
+
+        while (executed < quantumCycle && currentProcess->getStatus() != FINISHED)
+        {
+            if (currentProcess->isSleeping())
+            {
+                state = WorkerState::SLEEPING;
+                currentProcess->tickSleep();
+                std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+
+                std::lock_guard<std::mutex> lock(readyQueueMutex);
+                readyQueue.push(currentProcess);
+                break;
+            }
+
+            state = WorkerState::RUNNING;
+           // std::cout << "Current command for " << currentProcess->getProcessId() << ": " << currentProcess->getCommandIndex() << std::endl;
+            currentProcess->execute();
+
+            if (delayPerExec > 0)
+            {
+                state = WorkerState::DELAYED;
+                for (int i = 0; i < delayPerExec; ++i)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                state = WorkerState::RUNNING;
+            }
+            else
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+            }
+
+            executed++;
+        }
+
+        quantumCounter++;
+
+        // Output memory snapshot
+        std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
+        std::ofstream outFile(filename);
+        if (outFile.is_open())
+        {
+            outFile << "Timestamp: (" << currentProcess->getRunTimestamp() << ")" << std::endl;
+            outFile << "Number of processes in memory: X" << std::endl;
+            outFile << "Total external fragmentation in KB: X" << std::endl;
+            outFile << "" << std::endl;
+            outFile << "----end---- = X" << std::endl;
+            outFile << "" << std::endl;
+            outFile << "{PROCESS1 UPPER LIMIT}" << std::endl;
+            outFile << "PX" << std::endl;
+            outFile << "{PROCESS1 LOWER LIMIT}" << std::endl;
+            outFile << "" << std::endl;
+            outFile << "{PROCESS2 UPPER LIMIT}" << std::endl;
+            outFile << "PX" << std::endl;
+            outFile << "{PROCESS2 LOWER LIMIT}" << std::endl;
+            outFile << "" << std::endl;
+            outFile << "----start---- = X" << std::endl;
+            outFile.close();
+        }
+
+
+        if (currentProcess->getStatus() == FINISHED)
+        {
+            memoryAllocator->deallocate(pid);
+            //std::cout << "[Worker " << id << "] Deallocated memory from process " << pid << "." << std::endl;
+        }
+        else if (!currentProcess->isSleeping())
+        {
+            //std::cout << "[Worker " << id << "] Quantum expired, preempting process " << pid << "." << std::endl;
+            std::lock_guard<std::mutex> lock(readyQueueMutex);
+            readyQueue.push(currentProcess);
+        }
+
+        state = WorkerState::IDLE;
     }
 }
