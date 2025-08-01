@@ -22,82 +22,62 @@ public:
 class FlatMemoryAllocator : public IMemoryAllocator
 {
 public:
-    FlatMemoryAllocator(size_t maximumSize)
+    FlatMemoryAllocator(size_t maximumSize, size_t pageSize = 4096, size_t maxPages = 4)
         : maxSize(maximumSize),
-        memory(maximumSize, '.'),
-        allocationMap(maximumSize, false) {
+          pageSize(pageSize),
+          maxPagesPerProcess(maxPages),
+          memory(maximumSize, '.'),
+          allocationMap(maximumSize, false) {
     }
 
     void setMaxMemorySize(int maximumSize) {
         maxSize = maximumSize;
     }
 
-    void* allocate(size_t size, int processId) override
-    {
-        for (size_t i = 0; i <= maxSize - size; ++i)
-        {
-            if (!allocationMap[i] && canAllocateAt(i, size))
-            {
-                allocateAt(i, size, processId);
-                return &memory[i];
+    void* allocate(size_t size, int processId) override {
+        size_t numPages = (size + pageSize - 1) / pageSize;
+        if (numPages > maxPagesPerProcess) numPages = maxPagesPerProcess;
+
+        ProcessInfo procInfo;
+        procInfo.totalPages = numPages;
+
+        for (size_t page = 0; page < numPages; ++page) {
+            size_t index = findFreePage();
+            if (index == SIZE_MAX) {
+                deallocate(processId);
+                return nullptr;
             }
+            markPageAllocated(index, pageSize);
+            procInfo.pages.push_back({ index, true });
         }
-        return nullptr;
+
+        processAllocations[processId] = procInfo;
+        return &memory[processAllocations[processId].pages[0].startIndex];
     }
 
-    void deallocate(int processId) override
-    {
+    void deallocate(int processId) override {
         auto it = processAllocations.find(processId);
-        if (it != processAllocations.end())
-        {
-            size_t start = it->second.startIndex;
-            size_t size = it->second.size;
-            for (size_t i = start; i < start + size; ++i)
-            {
-                allocationMap[i] = false;
-                memory[i] = '.';
+        if (it != processAllocations.end()) {
+            for (const auto& page : it->second.pages) {
+                if (page.inMemory) {
+                    for (size_t i = page.startIndex; i < page.startIndex + pageSize; ++i) {
+                        memory[i] = '.';
+                        allocationMap[i] = false;
+                    }
+                }
             }
             processAllocations.erase(it);
         }
+
+        std::remove("csopesy-backing-store.txt");
     }
 
-    std::string visualizeMemory() override
-    {
+    std::string visualizeMemory() override {
         return std::string(memory.begin(), memory.end());
     }
 
-    size_t getProcessCount() const
-    {
+    size_t getProcessCount() const {
         return processAllocations.size();
-    }
-
-    size_t getExternalFragmentation(size_t minBlockSize) const
-    {
-        size_t totalFragmented = 0;
-        size_t currentFreeBlock = 0;
-
-        for (bool allocated : allocationMap)
-        {
-            if (!allocated)
-            {
-                ++currentFreeBlock;
-            }
-            else
-            {
-                if (currentFreeBlock > 0 && currentFreeBlock < minBlockSize)
-                {
-                    totalFragmented += currentFreeBlock;
-                }
-                currentFreeBlock = 0;
-            }
-        }
-
-        if (currentFreeBlock > 0 && currentFreeBlock < minBlockSize)
-        {
-            totalFragmented += currentFreeBlock;
-        }
-
-        return totalFragmented;
     }
 
     bool hasAllocation(int processId) const {
@@ -106,8 +86,8 @@ public:
 
     void* getProcessMemoryPointer(int processId) const {
         auto it = processAllocations.find(processId);
-        if (it != processAllocations.end()) {
-            return const_cast<char*>(&memory[it->second.startIndex]);
+        if (it != processAllocations.end() && !it->second.pages.empty()) {
+            return const_cast<char*>(&memory[it->second.pages[0].startIndex]);
         }
         return nullptr;
     }
@@ -119,70 +99,117 @@ public:
         std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
         std::tm timeInfo;
         localtime_s(&timeInfo, &timeStamp);
-        outFile << "Timestamp: " << "(" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")" << "\n";
+        outFile << "Timestamp: (" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")\n";
 
         outFile << "Number of processes in memory: " << getProcessCount() << "\n";
-
         int tempExternalFragmentation = (4 - getProcessCount()) * 4096;
-        // getExternalFragmentation(16) returns 0 kaya ganito muna
         outFile << "Total external fragmentation in KB: " << tempExternalFragmentation << " \n\n";
-
-        // Print upper and lower memory address limits for each process
         outFile << "----end---- = 16384\n" << std::endl;
-       
+
         std::vector<std::tuple<size_t, int, size_t>> blocks;
         for (const auto& entry : processAllocations) {
             int processId = entry.first;
-            const ProcessInfo& info = entry.second;
-            size_t lower_limit = info.startIndex;
-            size_t upper_limit = info.startIndex + info.size;
-            blocks.emplace_back(upper_limit, processId, lower_limit);
+            for (const auto& page : entry.second.pages) {
+                blocks.emplace_back(page.startIndex + pageSize, processId, page.startIndex);
+            }
         }
+
         std::sort(blocks.begin(), blocks.end(), [](const auto& a, const auto& b) {
-            return std::get<0>(a) > std::get<0>(b); // descending by upper_limit
+            return std::get<0>(a) > std::get<0>(b);
         });
+
         for (const auto& block : blocks) {
             size_t upper_limit = std::get<0>(block);
             int processId = std::get<1>(block);
             size_t lower_limit = std::get<2>(block);
             outFile << upper_limit << "\n";
             outFile << "P" << processId << "\n";
-            outFile << lower_limit << "\n";
-            outFile << "\n";
+            outFile << lower_limit << "\n\n";
         }
+
         outFile << "----start----- = 0" << std::endl;
         outFile.close();
     }
 
+    void swapOutToBackstore(int processId, size_t pageIndex) {
+        auto& proc = processAllocations[processId];
+        if (pageIndex >= proc.pages.size() || !proc.pages[pageIndex].inMemory) return;
+
+        std::ofstream outFile("csopesy-backing-store.txt", std::ios::app);
+        size_t start = proc.pages[pageIndex].startIndex;
+        outFile << "P" << processId << "_page" << pageIndex << " ";
+        for (size_t i = start; i < start + pageSize; ++i) {
+            outFile << memory[i];
+            memory[i] = '.';
+            allocationMap[i] = false;
+        }
+        outFile << "\n";
+        proc.pages[pageIndex].inMemory = false;
+    }
+
+    bool swapInFromBackstore(int processId, size_t pageIndex) {
+    auto& proc = processAllocations[processId];
+    if (pageIndex >= proc.pages.size() || proc.pages[pageIndex].inMemory) return false;
+
+    size_t index = findFreePage();
+    if (index == SIZE_MAX) return false;
+
+    // Open and search for the corresponding page content
+    std::ifstream inFile("csopesy-backing-store.txt");
+    std::string line;
+    std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
+
+    while (std::getline(inFile, line)) {
+        if (line.rfind(targetPrefix, 0) == 0) {
+            std::string content = line.substr(targetPrefix.length());
+            for (size_t i = 0; i < pageSize && i < content.size(); ++i) {
+                memory[index + i] = content[i];
+                allocationMap[index + i] = true;
+            }
+            break;
+        }
+    }
+
+    proc.pages[pageIndex].startIndex = index;
+    proc.pages[pageIndex].inMemory = true;
+    return true;
+}
+
 
 private:
-    struct ProcessInfo
-    {
+    struct PageInfo {
         size_t startIndex;
-        size_t size;
+        bool inMemory;
+    };
+
+    struct ProcessInfo {
+        std::vector<PageInfo> pages;
+        size_t totalPages;
     };
 
     size_t maxSize;
+    size_t pageSize;
+    size_t maxPagesPerProcess;
     std::vector<char> memory;
     std::vector<bool> allocationMap;
-    std::unordered_map<int, ProcessInfo> processAllocations;  // changed to int
+    std::unordered_map<int, ProcessInfo> processAllocations;
 
-    bool canAllocateAt(size_t index, size_t size) const
-    {
-        if (index + size > maxSize)
-            return false;
-        for (size_t i = index; i < index + size; ++i)
-        {
-            if (allocationMap[i])
-                return false;
+    size_t findFreePage() const {
+        for (size_t i = 0; i <= maxSize - pageSize; i += pageSize) {
+            bool free = true;
+            for (size_t j = 0; j < pageSize; ++j) {
+                if (allocationMap[i + j]) {
+                    free = false;
+                    break;
+                }
+            }
+            if (free) return i;
         }
-        return true;
+        return SIZE_MAX;
     }
 
-    void allocateAt(size_t index, size_t size, int processId)  // changed to int
-    {
+    void markPageAllocated(size_t index, size_t size) {
         std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
         std::fill(memory.begin() + index, memory.begin() + index + size, '#');
-        processAllocations[processId] = { index, size };
     }
 };
