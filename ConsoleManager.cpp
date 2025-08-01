@@ -257,6 +257,96 @@ bool ConsoleManager::handleCommand(const string& input) {
                 cout << "\nEnter a command: ";
             }
 
+            else if (input.substr(0, 9) == "screen -c") {
+
+                if (std::count(input.begin(), input.end(), ' ') < 4) {
+                    cout << RED << "> Error: Missing arguements for 'screen -c' command." << RESET << endl;
+                    cout << "\nEnter a command: ";
+                }
+                else {
+                    /* 
+                    * test commands : screen -c test1 256 "PRINT(\"Hello World!\")"
+                    *                 screen -c test2 256 "DECLARE varA 10; DECLARE varB 5; ADD varA varA varB; WRITE 0x500 varA; READ varC 0x500; PRINT(\"Result: \" + varC)"
+                    */
+                    std::istringstream iss(input.substr(10));
+                    std::string processName, memSizeStr, instructionsBlock;
+                    size_t memSize = 0;
+
+                    // Parse process name
+                    iss >> processName;
+
+                    // Parse memory size
+                    iss >> memSizeStr;
+
+                    try {
+                        memSize = std::stoul(memSizeStr);
+                    }
+                    catch (...) {
+                        cout << RED << "> Error: Invalid memory size for 'screen -c' command." << RESET << endl;
+                        cout << "\nEnter a command: ";
+                    }
+
+                    // Parse quoted instructions, handling escaped quotes
+                    char ch;
+                    // Skip until first quote
+                    while (iss.get(ch)) {
+                        if (ch == '"') break;
+                    }
+                    bool inEscape = false;
+                    bool inQuotes = true;
+                    instructionsBlock.clear();
+                    while (inQuotes && iss.get(ch)) {
+                        if (inEscape) {
+                            instructionsBlock += ch;
+                            inEscape = false;
+                        }
+                        else if (ch == '\\') {
+                            inEscape = true;
+                        }
+                        else if (ch == '"') {
+                            inQuotes = false;
+                        }
+                        else {
+                            instructionsBlock += ch;
+                        }
+                    }
+                    if (instructionsBlock.empty()) {
+                        cout << RED << "> Error: Missing or invalid instructions for 'screen -c' command. Enclose instructions in double quotes." << RESET << endl;
+                        cout << "\nEnter a command: ";
+                    }
+
+                    // Split instructions by ';'
+                    std::vector<std::string> instructions;
+                    std::istringstream instrStream(instructionsBlock);
+                    std::string instr;
+                    while (std::getline(instrStream, instr, ';')) {
+                        // Trim leading/trailing spaces
+                        instr.erase(instr.begin(), std::find_if(instr.begin(), instr.end(), [](int ch) { return !std::isspace(ch); }));
+                        instr.erase(std::find_if(instr.rbegin(), instr.rend(), [](int ch) { return !std::isspace(ch); }).base(), instr.end());
+                        if (!instr.empty())
+                            instructions.push_back(instr);
+                    }
+
+                    if (instructions.empty()) {
+                        cout << RED << "> Error: No valid instructions found for 'screen -c' command." << RESET << endl;
+                        cout << "\nEnter a command: ";
+                    }
+                    if (instructions.size() > 50) {
+                        cout << RED << "> Error: Instructions too long. Maximum size is 50." << RESET << endl;
+                        cout << "\nEnter a command: ";
+                    }
+
+                    // create proc
+					pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions);
+
+                    cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
+                    cout << YELLOW << "Instructions:" << RESET << endl;
+                    for (size_t i = 0; i < instructions.size(); ++i) {
+                        cout << (i + 1) << ": " << instructions[i] << endl;
+                    }
+                    cout << "\nEnter a command: ";
+                }
+            }
             else if (input == "scheduler-stop")
             {
                 pm.stopDummy();

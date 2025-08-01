@@ -198,30 +198,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         }
 
         quantumCounter++;
-        memoryAllocator->getMemorySnapshot(quantumCounter);
-        // Output memory snapshot
-        /*std::string filename = "memory_stamp_" + std::to_string(quantumCounter) + ".txt";
-        std::ofstream outFile(filename);
-        if (outFile.is_open())
-        {
-            outFile << "Timestamp: (" << currentProcess->getRunTimestamp() << ")" << std::endl;
-            outFile << "Number of processes in memory: X" << std::endl;
-            outFile << "Total external fragmentation in KB: X" << std::endl;
-            outFile << "" << std::endl;
-            outFile << "----end---- = X" << std::endl;
-            outFile << "" << std::endl;
-            outFile << "{PROCESS1 UPPER LIMIT}" << std::endl;
-            outFile << "PX" << std::endl;
-            outFile << "{PROCESS1 LOWER LIMIT}" << std::endl;
-            outFile << "" << std::endl;
-            outFile << "{PROCESS2 UPPER LIMIT}" << std::endl;
-            outFile << "PX" << std::endl;
-            outFile << "{PROCESS2 LOWER LIMIT}" << std::endl;
-            outFile << "" << std::endl;
-            outFile << "----start---- = X" << std::endl;
-            outFile.close();
-        }*/
-
+        // memoryAllocator->getMemorySnapshot(quantumCounter);
 
         if (currentProcess->getStatus() == FINISHED)
         {
