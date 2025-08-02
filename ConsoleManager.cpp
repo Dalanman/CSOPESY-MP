@@ -245,14 +245,29 @@ bool ConsoleManager::handleCommand(const string& input) {
                 cout << "\nEnter a command: ";
             }
             else if (input.substr(0, 9) == "screen -s") {
-                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
-                    // if no "process" name
-                    // clearScreen();
-                    cout << RED << "> Error: Missing process name for 'screen -s' command." << RESET << endl;
+                if (std::count(input.begin(), input.end(), ' ') < 3) {
+                    cout << RED << "> Error: Missing arguements for 'screen -s' command." << RESET << endl;
                 }
                 else {
-                    pm.makeAlternatingDummy(input.substr(10), cpuTick, MinIns, MaxIns, BPF);
-                    cout << GREEN << "Process " << input.substr(10) << " started successfully." << RESET << endl;
+                    std::istringstream iss(input.substr(10));
+                    std::string processName, memSizeStr;
+                    size_t memSize = 0;
+
+                    // Parse process name
+                    iss >> processName;
+
+                    // Parse memory size
+                    iss >> memSizeStr;
+
+                    try {
+                        memSize = std::stoul(memSizeStr);
+                    }
+                    catch (...) {
+                        cout << RED << "> Error: Invalid memory size for 'screen -c' command." << RESET << endl;
+                    }
+
+                    pm.makeAlternatingDummy(processName, cpuTick, MinIns, MaxIns, BPF);
+                    cout << GREEN << "Process " << processName << " with allocated memory of " << memSizeStr << " started successfully." << RESET << endl;
                 }
                 cout << "\nEnter a command: ";
             }
