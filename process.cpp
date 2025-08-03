@@ -41,66 +41,80 @@ void Process::parse()
 
 void Process::setArrivalTime()
 {
-    // Getting the arrival time
-    std::chrono::time_point<std::chrono::system_clock> TimeStamp = std::chrono::system_clock::now();
-    std::time_t timeNow = std::chrono::system_clock::to_time_t(TimeStamp);
-    std::tm localTime;
+//    // Getting the arrival time
+//    std::chrono::time_point<std::chrono::system_clock> TimeStamp = std::chrono::system_clock::now();
+//    std::time_t timeNow = std::chrono::system_clock::to_time_t(TimeStamp);
+//    std::tm localTime;
+//
+//#ifdef _WIN32
+//    localtime_s(&localTime, &timeNow); // Windows-safe
+//#else
+//    localtime_r(&timeNow, &localTime); // Unix-safe
+//#endif
+//
+//    // Format: MM/DD/YYYY HH:MM:SSAM
+//    std::ostringstream oss;
+//    int hour = localTime.tm_hour;
+//    std::string ampm = (hour >= 12) ? "PM" : "AM";
+//    if (hour == 0)
+//        hour = 12;
+//    else if (hour > 12)
+//        hour -= 12;
+//
+//    oss << std::setfill('0') << std::setw(2) << (localTime.tm_mon + 1) << "/"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_mday << "/"
+//        << (1900 + localTime.tm_year) << " "
+//        << std::setfill('0') << std::setw(2) << hour << ":"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_min << ":"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_sec
+//        << ampm;
 
-#ifdef _WIN32
-    localtime_s(&localTime, &timeNow); // Windows-safe
-#else
-    localtime_r(&timeNow, &localTime); // Unix-safe
-#endif
+    auto now = std::chrono::system_clock::now();
+    std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
+    std::tm timeInfo;
+    localtime_s(&timeInfo, &timeStamp);
+    std::ostringstream oss2;
+    oss2 << "(" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")";
+    arrivalTimeStamp = oss2.str();
 
-    // Format: MM/DD/YYYY HH:MM:SSAM
-    std::ostringstream oss;
-    int hour = localTime.tm_hour;
-    std::string ampm = (hour >= 12) ? "PM" : "AM";
-    if (hour == 0)
-        hour = 12;
-    else if (hour > 12)
-        hour -= 12;
-
-    oss << std::setfill('0') << std::setw(2) << (localTime.tm_mon + 1) << "/"
-        << std::setfill('0') << std::setw(2) << localTime.tm_mday << "/"
-        << (1900 + localTime.tm_year) << " "
-        << std::setfill('0') << std::setw(2) << hour << ":"
-        << std::setfill('0') << std::setw(2) << localTime.tm_min << ":"
-        << std::setfill('0') << std::setw(2) << localTime.tm_sec
-        << ampm;
-
-    arrivalTimeStamp = oss.str();
 }
 
 void Process::setRunTimeStamp()
 {
+//    auto now = std::chrono::system_clock::now();
+//    std::time_t timeNow = std::chrono::system_clock::to_time_t(now);
+//    std::tm localTime;
+//
+//#ifdef _WIN32
+//    localtime_s(&localTime, &timeNow);
+//#else
+//    localtime_r(&timeNow, &localTime);
+//#endif
+//
+//    std::ostringstream oss;
+//    int hour = localTime.tm_hour;
+//    std::string ampm = (hour >= 12) ? "PM" : "AM";
+//    if (hour == 0)
+//        hour = 12;
+//    else if (hour > 12)
+//        hour -= 12;
+//
+//    oss << std::setfill('0') << std::setw(2) << (localTime.tm_mon + 1) << "/"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_mday << "/"
+//        << (1900 + localTime.tm_year) << " "
+//        << std::setfill('0') << std::setw(2) << hour << ":"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_min << ":"
+//        << std::setfill('0') << std::setw(2) << localTime.tm_sec
+//        << ampm;
+
     auto now = std::chrono::system_clock::now();
-    std::time_t timeNow = std::chrono::system_clock::to_time_t(now);
-    std::tm localTime;
+    std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
+    std::tm timeInfo;
+    localtime_s(&timeInfo, &timeStamp);
+    std::ostringstream oss2;
+    oss2 << "(" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")";
+    runTimeStamp = oss2.str();
 
-#ifdef _WIN32
-    localtime_s(&localTime, &timeNow);
-#else
-    localtime_r(&timeNow, &localTime);
-#endif
-
-    std::ostringstream oss;
-    int hour = localTime.tm_hour;
-    std::string ampm = (hour >= 12) ? "PM" : "AM";
-    if (hour == 0)
-        hour = 12;
-    else if (hour > 12)
-        hour -= 12;
-
-    oss << std::setfill('0') << std::setw(2) << (localTime.tm_mon + 1) << "/"
-        << std::setfill('0') << std::setw(2) << localTime.tm_mday << "/"
-        << (1900 + localTime.tm_year) << " "
-        << std::setfill('0') << std::setw(2) << hour << ":"
-        << std::setfill('0') << std::setw(2) << localTime.tm_min << ":"
-        << std::setfill('0') << std::setw(2) << localTime.tm_sec
-        << ampm;
-
-    runTimeStamp = oss.str();
 }
 
 void Process::execute()
