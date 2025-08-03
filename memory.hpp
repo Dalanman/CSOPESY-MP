@@ -28,6 +28,9 @@ public:
           maxPagesPerProcess(maxPages),
           memory(maximumSize, '.'),
           allocationMap(maximumSize, false) {
+        for (size_t i = 0; i <= maxSize - pageSize; i += pageSize) {
+            freeFrames.push_back(i);
+        }
     }
 
     void setMaxMemorySize(int maximumSize) {
@@ -64,6 +67,7 @@ public:
                         memory[i] = '.';
                         allocationMap[i] = false;
                     }
+                    freeFrames.push_back(page.startIndex);
                 }
             }
             processAllocations.erase(it);
@@ -144,37 +148,37 @@ public:
             allocationMap[i] = false;
         }
         outFile << "\n";
+
         proc.pages[pageIndex].inMemory = false;
+        freeFrames.push_back(start);
     }
 
     bool swapInFromBackstore(int processId, size_t pageIndex) {
-    auto& proc = processAllocations[processId];
-    if (pageIndex >= proc.pages.size() || proc.pages[pageIndex].inMemory) return false;
+        auto& proc = processAllocations[processId];
+        if (pageIndex >= proc.pages.size() || proc.pages[pageIndex].inMemory) return false;
 
-    size_t index = findFreePage();
-    if (index == SIZE_MAX) return false;
+        size_t index = findFreePage();
+        if (index == SIZE_MAX) return false;
 
-    // Open and search for the corresponding page content
-    std::ifstream inFile("csopesy-backing-store.txt");
-    std::string line;
-    std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
+        std::ifstream inFile("csopesy-backing-store.txt");
+        std::string line;
+        std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
 
-    while (std::getline(inFile, line)) {
-        if (line.rfind(targetPrefix, 0) == 0) {
-            std::string content = line.substr(targetPrefix.length());
-            for (size_t i = 0; i < pageSize && i < content.size(); ++i) {
-                memory[index + i] = content[i];
-                allocationMap[index + i] = true;
+        while (std::getline(inFile, line)) {
+            if (line.rfind(targetPrefix, 0) == 0) {
+                std::string content = line.substr(targetPrefix.length());
+                for (size_t i = 0; i < pageSize && i < content.size(); ++i) {
+                    memory[index + i] = content[i];
+                    allocationMap[index + i] = true;
+                }
+                break;
             }
-            break;
         }
+
+        proc.pages[pageIndex].startIndex = index;
+        proc.pages[pageIndex].inMemory = true;
+        return true;
     }
-
-    proc.pages[pageIndex].startIndex = index;
-    proc.pages[pageIndex].inMemory = true;
-    return true;
-}
-
 
 private:
     struct PageInfo {
@@ -193,19 +197,13 @@ private:
     std::vector<char> memory;
     std::vector<bool> allocationMap;
     std::unordered_map<int, ProcessInfo> processAllocations;
+    std::vector<size_t> freeFrames;
 
-    size_t findFreePage() const {
-        for (size_t i = 0; i <= maxSize - pageSize; i += pageSize) {
-            bool free = true;
-            for (size_t j = 0; j < pageSize; ++j) {
-                if (allocationMap[i + j]) {
-                    free = false;
-                    break;
-                }
-            }
-            if (free) return i;
-        }
-        return SIZE_MAX;
+    size_t findFreePage() {
+        if (freeFrames.empty()) return SIZE_MAX;
+        size_t index = freeFrames.back();
+        freeFrames.pop_back();
+        return index;
     }
 
     void markPageAllocated(size_t index, size_t size) {
