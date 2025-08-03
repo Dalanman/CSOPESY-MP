@@ -216,11 +216,11 @@ bool ConsoleManager::handleCommand(const string& input) {
                     }
 
                     if (!found) {
-                        cout << RED << "Process " << processName << " not found or already finished." << RESET << endl;
+                        cout << RED << "Process " << processName << " not found." << RESET << endl;
                     }
-                    else if (activeProcess->getStatus() == FINISHED) {
-                        cout << RED << "Process " << processName << " has already finished." << RESET << endl;
-                    }
+                    //else if (activeProcess->getStatus() == FINISHED) {
+                    //    cout << RED << "Process " << processName << " has already finished." << RESET << endl;
+                    //}
                     else {
                         clearScreen();
                         cout << YELLOW << "Attached to process: " << processName << RESET << endl;
