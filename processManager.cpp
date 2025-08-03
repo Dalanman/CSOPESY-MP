@@ -287,6 +287,94 @@ void ProcessManager::UpdateProcessScreen()
     }
 }
 
+void ProcessManager::processSMI(){
+    int busy = 0;
+    int sleeping = 0, idle = 0, delayed = 0;
+    int available = 0;
+    for (auto& worker : workers)
+    {
+        switch (worker->getState())
+        {
+        case CPUWorker::WorkerState::RUNNING:
+            busy++;
+            break;
+        case CPUWorker::WorkerState::SLEEPING:
+            sleeping++;
+            break;
+        case CPUWorker::WorkerState::IDLE:
+            idle++;
+            break;
+        case CPUWorker::WorkerState::DELAYED:
+            delayed++;
+            break;
+        }
+    }
+
+    int utilization = (100 * (busy + delayed)) / cores;
+    int used = busy + delayed;
+    available = idle;
+    cout << " " << endl;
+    cout << "---------------------------------------------" << endl;
+    cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |" << endl;
+    cout << "---------------------------------------------" << endl;
+    cout << " " << endl;
+    std::cout << "CPU utilization: " << utilization << "%" << std::endl;
+    std::cout << "Memory usage: " << used << "MiB / " << used << "MiB" << std::endl;
+    std::cout << "Memory utilization: " << available << "%" << std::endl;
+    std::cout << " " << std::endl;
+
+    std::cout << "=============================================" << std::endl;
+    std::cout << "Running processes and memory usage: " << std::endl;
+    std::cout << "---------------------------------------------" << std::endl;
+    for (const auto& p : process)
+    {
+        //|| p->getStatus() == 1 || p->getStatus() == 0
+        if (p->getStatus() == 2)
+        {
+            std::cout << p->getProcessName() << "\t"
+                << p->getRunTimestamp() << std::endl;
+        }
+    }
+
+    std::cout << "---------------------------------------------" << std::endl;
+}
+
+void ProcessManager::vmstat() {
+    int busy = 0;
+    int sleeping = 0, idle = 0, delayed = 0;
+    int available = 0;
+    for (auto& worker : workers)
+    {
+        switch (worker->getState())
+        {
+        case CPUWorker::WorkerState::RUNNING:
+            busy++;
+            break;
+        case CPUWorker::WorkerState::SLEEPING:
+            sleeping++;
+            break;
+        case CPUWorker::WorkerState::IDLE:
+            idle++;
+            break;
+        case CPUWorker::WorkerState::DELAYED:
+            delayed++;
+            break;
+        }
+    }
+
+    int utilization = (100 * (busy + delayed)) / cores;
+    int used = busy + delayed;
+    available = idle;
+
+    cout << 0 << " K total memory" << endl;
+    cout << 0 << " K used memory" << endl;
+    cout << 0 << " K free memory" << endl;
+    cout << idle << " idle CPU ticks" << endl;
+    cout << busy << " active CPU ticks" << endl;
+    cout << 0 << " pages paged in" << endl;
+    cout << 0 << " pages paged out" << endl;
+}
+
 void ProcessManager::ReportUtil() {
     std::ofstream logFile("csopesy-log.txt", std::ios::out | std::ios::trunc);
     if (!logFile.is_open()) {

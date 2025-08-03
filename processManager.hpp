@@ -38,7 +38,9 @@ public:
     void makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
     void alternatingCase(int cpuTick, int minIns, int maxIns, int BPF);
 	void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions);
-
+    
+    void vmstat();
+    void processSMI();
 
 private:
     int cores;

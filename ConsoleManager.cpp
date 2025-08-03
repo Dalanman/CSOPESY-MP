@@ -362,6 +362,14 @@ bool ConsoleManager::handleCommand(const string& input) {
                     cout << "\nEnter a command: ";
                 }
             }
+            else if (input == "process-smi") {
+				pm.processSMI();
+                cout << "\nEnter a command: ";
+            }
+            else if (input == "vmstat") {
+				pm.vmstat();
+                cout << "\nEnter a command: ";
+            }
             else if (input == "scheduler-stop")
             {
                 pm.stopDummy();
