@@ -205,6 +205,17 @@ public:
         outFile.close();
     }
 
+    size_t getTotalFreeMemory() const
+    {
+        size_t free = 0;
+        for (bool frame : freeFrames)
+        {
+            if (!frame)
+                free += pageSize;
+        }
+        return free;
+    }
+
     void swapOutToBackstore(int processId, size_t pageIndex)
     {
         auto &proc = processAllocations[processId];
@@ -223,6 +234,7 @@ public:
         outFile << "\n";
 
         proc.pages[pageIndex].inMemory = false;
+        totalPagesPagedIn++;
         freeFrames.push_back(start);
     }
 
@@ -256,7 +268,18 @@ public:
 
         proc.pages[pageIndex].startIndex = index;
         proc.pages[pageIndex].inMemory = true;
+        totalPagesPagedIn++;
         return true;
+    }
+
+    size_t getTotalPagesPagedIn() const
+    {
+        return totalPagesPagedIn;
+    }
+
+    size_t getTotalPagesPagedOut() const
+    {
+        return totalPagesPagedOut;
     }
 
 private:
@@ -279,6 +302,8 @@ private:
     std::vector<bool> allocationMap;
     std::unordered_map<int, ProcessInfo> processAllocations;
     std::vector<size_t> freeFrames;
+    size_t totalPagesPagedIn = 0;
+    size_t totalPagesPagedOut = 0;
 
     size_t findFreePage()
     {
