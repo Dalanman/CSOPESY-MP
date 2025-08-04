@@ -10,6 +10,8 @@
 #include <ctime>
 #include <iostream>
 #include <algorithm>
+#include <mutex>
+#include <cstdint>
 
 class IMemoryAllocator
 {
@@ -129,10 +131,8 @@ public:
 
         if (!page.inMemory)
         {
-            // First try to swap in from backing store
             if (!swapInFromBackstore(processId, pageIndex))
             {
-                // Not in backing store → allocate blank frame
                 size_t index = findFreePage();
                 if (index == SIZE_MAX)
                     return nullptr;
@@ -140,7 +140,6 @@ public:
                 markPageAllocated(index, pageSize);
                 page.startIndex = index;
             }
-
             page.inMemory = true;
         }
 
@@ -162,58 +161,104 @@ public:
         return nullptr;
     }
 
-    void getMemorySnapshot(int quantum)
+    char readByteAtAddress(uint32_t address)
     {
-        std::ofstream outFile("memory_stamp_" + std::to_string(quantum) + ".txt");
-
-        auto now = std::chrono::system_clock::now();
-        std::time_t timeStamp = std::chrono::system_clock::to_time_t(now);
-        std::tm timeInfo;
-        localtime_s(&timeInfo, &timeStamp);
-        outFile << "Timestamp: (" << std::put_time(&timeInfo, "%m/%d/%Y %I:%M:%S%p") << ")\n";
-
-        outFile << "Number of processes in memory: " << getProcessCount() << "\n";
-        int tempExternalFragmentation = (4 - getProcessCount()) * 4096;
-        outFile << "Total external fragmentation in KB: " << tempExternalFragmentation << " \n\n";
-        outFile << "----end---- = 16384\n"
-                << std::endl;
-
-        std::vector<std::tuple<size_t, int, size_t>> blocks;
-        for (const auto &entry : processAllocations)
+        std::lock_guard<std::mutex> lock(memMutex);
+        if (address >= memory.size())
         {
-            int processId = entry.first;
-            for (const auto &page : entry.second.pages)
+            throw std::out_of_range("Read address out of range");
+        }
+        return memory[address];
+    }
+
+    void writeByteAtAddress(uint32_t address, char value)
+    {
+        std::lock_guard<std::mutex> lock(memMutex);
+        if (address >= memory.size())
+        {
+            throw std::out_of_range("Write address out of range");
+        }
+        memory[address] = value;
+    }
+
+    int readFromHexAddress(const std::string &hexAddr)
+    {
+        std::lock_guard<std::mutex> lock(memMutex);
+        size_t address = std::stoul(hexAddr, nullptr, 16);
+
+        ensurePageIsLoaded(address); // Simulate paging
+
+        if (address >= memory.size())
+        {
+            throw std::out_of_range("Invalid memory read address");
+        }
+
+        return memory[address]; // or reinterpret cast if you want multi-byte values
+    }
+
+    void writeToHexAddress(const std::string &hexAddr, int value)
+    {
+        std::lock_guard<std::mutex> lock(memMutex);
+        size_t address = std::stoul(hexAddr, nullptr, 16);
+
+        ensurePageIsLoaded(address); // Simulate paging
+
+        if (address >= memory.size())
+        {
+            throw std::out_of_range("Invalid memory write address");
+        }
+
+        memory[address] = value; // or byte-by-byte storage if memory is char-based
+    }
+
+    void ensurePageIsLoaded(int addr)
+    {
+        std::lock_guard<std::mutex> lock(memMutex);
+        for (auto &[pid, proc] : processAllocations)
+        {
+            for (size_t pageIndex = 0; pageIndex < proc.pages.size(); ++pageIndex)
             {
-                blocks.emplace_back(page.startIndex + pageSize, processId, page.startIndex);
+                PageInfo &page = proc.pages[pageIndex];
+                if (page.inMemory && addr >= page.startIndex && addr < page.startIndex + pageSize)
+                {
+                    return; // Page is already loaded
+                }
+
+                if (!page.inMemory && page.startIndex == SIZE_MAX)
+                {
+                    // Allocate a new page
+                    size_t index = findFreePage();
+                    if (index == SIZE_MAX)
+                        return;
+                    markPageAllocated(index, pageSize);
+                    page.startIndex = index;
+                    page.inMemory = true;
+                    totalPagesPagedIn++;
+                    return;
+                }
+                else if (!page.inMemory)
+                {
+                    // Try to swap in from backstore
+                    swapInFromBackstore(pid, pageIndex);
+                    return;
+                }
             }
         }
-
-        std::sort(blocks.begin(), blocks.end(), [](const auto &a, const auto &b)
-                  { return std::get<0>(a) > std::get<0>(b); });
-
-        for (const auto &block : blocks)
-        {
-            size_t upper_limit = std::get<0>(block);
-            int processId = std::get<1>(block);
-            size_t lower_limit = std::get<2>(block);
-            outFile << upper_limit << "\n";
-            outFile << "P" << processId << "\n";
-            outFile << lower_limit << "\n\n";
-        }
-
-        outFile << "----start----- = 0" << std::endl;
-        outFile.close();
     }
 
     size_t getTotalFreeMemory() const
     {
-        size_t free = 0;
-        for (bool frame : freeFrames)
-        {
-            if (!frame)
-                free += pageSize;
-        }
-        return free;
+        return freeFrames.size() * pageSize;
+    }
+
+    size_t getTotalPagesPagedIn() const
+    {
+        return totalPagesPagedIn;
+    }
+
+    size_t getTotalPagesPagedOut() const
+    {
+        return totalPagesPagedOut;
     }
 
     void swapOutToBackstore(int processId, size_t pageIndex)
@@ -234,7 +279,7 @@ public:
         outFile << "\n";
 
         proc.pages[pageIndex].inMemory = false;
-        totalPagesPagedIn++;
+        totalPagesPagedOut++;
         freeFrames.push_back(start);
     }
 
@@ -272,16 +317,6 @@ public:
         return true;
     }
 
-    size_t getTotalPagesPagedIn() const
-    {
-        return totalPagesPagedIn;
-    }
-
-    size_t getTotalPagesPagedOut() const
-    {
-        return totalPagesPagedOut;
-    }
-
 private:
     struct PageInfo
     {
@@ -302,6 +337,7 @@ private:
     std::vector<bool> allocationMap;
     std::unordered_map<int, ProcessInfo> processAllocations;
     std::vector<size_t> freeFrames;
+    std::mutex memMutex;
     size_t totalPagesPagedIn = 0;
     size_t totalPagesPagedOut = 0;
 

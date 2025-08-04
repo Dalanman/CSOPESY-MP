@@ -7,13 +7,14 @@
 #include <unordered_map>
 #include "symbolTable.hpp"
 #include <vector>
+#include "memory.hpp"
 using namespace GlobalSymbols;
 
 extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
 
 enum CommandType
 {
-    IO,    // ADD, SUBTRACT, DECLARE, SLEEP
+    IO,    // ADD, SUBTRACT, DECLARE, SLEEP, READ, WRITE
     PRINT, // PRINT
     FOR    // FOR LOOP
 };
@@ -26,7 +27,7 @@ public:
     Command(CommandType t) : type(t) {}
 
     virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) { /* do nothing */ }
-    virtual void IOExecute() { /* do nothing */ }
+    virtual void IOExecute(FlatMemoryAllocator* allocator = nullptr) { /* do nothing */ }
     virtual std::string toString() const = 0;
 
     virtual ~Command() = default;
@@ -46,11 +47,10 @@ public:
         const std::string keywords[] = { "from", "process" };
 
         for (size_t i = 0; i < input.size(); ++i) {
-            // Check for keyword boundary
             for (const std::string& kw : keywords) {
                 if (input.substr(i, kw.size()) == kw && i > 0 && std::isalpha(input[i - 1])) {
                     result += ' ';
-                    break; // insert space only once per position
+                    break;
                 }
             }
 
@@ -58,14 +58,11 @@ public:
 
             if (i > 0) {
                 char prev = input[i - 1];
-
-                // Insert space between lower->Upper
                 if (std::islower(prev) && std::isupper(curr)) {
                     result += ' ';
                 }
-                // Insert space between alpha <-> digit (except process00 which is already handled)
                 else if ((std::isalpha(prev) && std::isdigit(curr)) ||
-                    (std::isdigit(prev) && std::isalpha(curr))) {
+                         (std::isdigit(prev) && std::isalpha(curr))) {
                     result += ' ';
                 }
             }
@@ -79,7 +76,6 @@ public:
     void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) override
     {
         std::string output;
-
         const std::string prefix = "Valuefrom:";
 
         if (message.rfind(prefix, 0) == 0)
@@ -125,26 +121,24 @@ public:
 
 class IOCommand : public Command
 {
-    std::string operation; // e.g., "ADD", "SUBTRACT", "DECLARE", "SLEEP"
-    std::string lhsVar;    // For target variable or sleep duration
-    std::string rhsVar;    // First operand (or value for DECLARE)
-    std::string extraVar;  // Second operand for ADD/SUBTRACT
+    std::string operation;
+    std::string lhsVar;
+    std::string rhsVar;
+    std::string extraVar;
 
-    uint16_t rhsValue = 0;  // Used for DECLARE
-    uint8_t sleepTicks = 0; // Used for SLEEP
+    uint16_t rhsValue = 0;
+    uint8_t sleepTicks = 0;
     bool isSleeping = false;
 
 public:
     IOCommand(const std::string& op, const std::string& lhs = "", const std::string& rhs = "", const std::string& extra = "", uint16_t value = 0)
-        : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {
-    }
+        : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {}
 
-    std::string getOperation() {
-        return operation;
-    }
-    void IOExecute() override
+    std::string getOperation() { return operation; }
+
+    void IOExecute(FlatMemoryAllocator* allocator = nullptr) override
     {
-        std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex); // Ensure thread-safe access
+        std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
 
         if (operation == "DECLARE")
         {
@@ -175,6 +169,20 @@ public:
             sleepTicks = static_cast<uint8_t>(std::stoi(lhsVar));
             isSleeping = true;
         }
+        else if (operation == "READ" && allocator != nullptr)
+        {
+            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
+                GlobalSymbols::symbolTable[lhsVar] = 0;
+            int val = allocator->readFromHexAddress(rhsVar);
+            GlobalSymbols::symbolTable[lhsVar] = val;
+        }
+        else if (operation == "WRITE" && allocator != nullptr)
+        {
+            int value = 0;
+            if (GlobalSymbols::symbolTable.find(rhsVar) != GlobalSymbols::symbolTable.end())
+                value = GlobalSymbols::symbolTable[rhsVar];
+            allocator->writeToHexAddress(lhsVar, value);
+        }
     }
 
     std::string toString() const override
@@ -183,6 +191,10 @@ public:
             return "DECLARE " + lhsVar + ", " + std::to_string(rhsValue);
         else if (operation == "SLEEP")
             return "SLEEP " + lhsVar;
+        else if (operation == "READ")
+            return "READ " + lhsVar + ", " + rhsVar;
+        else if (operation == "WRITE")
+            return "WRITE " + lhsVar + ", " + rhsVar;
         else
             return operation + " " + lhsVar + ", " + rhsVar + ", " + extraVar;
     }
@@ -193,11 +205,10 @@ public:
             "DECLARE(x, 100)",
             "DECLARE(y, 200)",
             "ADD(z, x, y)",
-            "ADD(total, 50, 25)",
             "SUBTRACT(diff, x, 20)",
-            "SUBTRACT(balance, y, z)",
             "SLEEP(5)",
-            "SLEEP(10)" };
+            "READ(result, 0x1A3F)",
+            "WRITE(0x1A3F, result)" };
         return samples[rand() % samples.size()];
     }
 
@@ -322,7 +333,7 @@ public:
         return nestingDepth;
     }
 
-    void IOExecute() override
+    void IOExecute(FlatMemoryAllocator* allocator = nullptr) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
