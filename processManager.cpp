@@ -287,7 +287,7 @@ void ProcessManager::UpdateProcessScreen()
     }
 }
 
-void ProcessManager::processSMI(){
+void ProcessManager::processSMI(int maxMemory){
     int busy = 0;
     int sleeping = 0, idle = 0, delayed = 0;
     int available = 0;
@@ -311,6 +311,10 @@ void ProcessManager::processSMI(){
     }
 
     int utilization = (100 * (busy + delayed)) / cores;
+
+	int usedMemory = 0; // ewan ko
+	int memoryUtilization = (usedMemory / maxMemory) * 100; 
+
     int used = busy + delayed;
     available = idle;
     cout << " " << endl;
@@ -319,8 +323,8 @@ void ProcessManager::processSMI(){
     cout << "---------------------------------------------" << endl;
     cout << " " << endl;
     std::cout << "CPU utilization: " << utilization << "%" << std::endl;
-    std::cout << "Memory usage: " << used << "MiB / " << used << "MiB" << std::endl;
-    std::cout << "Memory utilization: " << available << "%" << std::endl;
+    std::cout << "Memory usage: " << usedMemory << "MiB / " << maxMemory << "MiB" << std::endl;
+    std::cout << "Memory utilization: " << memoryUtilization << "%" << std::endl;
     std::cout << " " << std::endl;
 
     std::cout << "=============================================" << std::endl;
@@ -339,40 +343,21 @@ void ProcessManager::processSMI(){
     std::cout << "---------------------------------------------" << std::endl;
 }
 
-void ProcessManager::vmstat() {
-    int busy = 0;
-    int sleeping = 0, idle = 0, delayed = 0;
-    int available = 0;
+void ProcessManager::vmstat(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory) {
+    int idleTick = 0, busyTick = 0;
     for (auto& worker : workers)
     {
-        switch (worker->getState())
-        {
-        case CPUWorker::WorkerState::RUNNING:
-            busy++;
-            break;
-        case CPUWorker::WorkerState::SLEEPING:
-            sleeping++;
-            break;
-        case CPUWorker::WorkerState::IDLE:
-            idle++;
-            break;
-        case CPUWorker::WorkerState::DELAYED:
-            delayed++;
-            break;
-        }
+		idleTick += worker->getIdleTick();
+		busyTick += worker->getActiveTick();
     }
 
-    int utilization = (100 * (busy + delayed)) / cores;
-    int used = busy + delayed;
-    available = idle;
-
-    cout << 0 << " K total memory" << endl;
+    cout << maxMemory << " K total memory" << endl;
     cout << 0 << " K used memory" << endl;
     cout << 0 << " K free memory" << endl;
-    cout << idle << " idle CPU ticks" << endl;
-    cout << busy << " active CPU ticks" << endl;
-    cout << 0 << " pages paged in" << endl;
-    cout << 0 << " pages paged out" << endl;
+    cout << idleTick << " idle CPU ticks" << endl;
+    cout << busyTick << " active CPU ticks" << endl;
+    cout << memoryAllocator->getTotalPagesPagedIn() << " pages paged in" << endl;
+    cout << memoryAllocator->getTotalPagesPagedOut() << " pages paged out" << endl;
 }
 
 void ProcessManager::ReportUtil() {

@@ -363,11 +363,11 @@ bool ConsoleManager::handleCommand(const string& input) {
                 }
             }
             else if (input == "process-smi") {
-				pm.processSMI();
+				pm.processSMI(maxOverallMem);
                 cout << "\nEnter a command: ";
             }
             else if (input == "vmstat") {
-				pm.vmstat();
+				pm.vmstat(memoryAllocator, maxOverallMem);
                 cout << "\nEnter a command: ";
             }
             else if (input == "scheduler-stop")
