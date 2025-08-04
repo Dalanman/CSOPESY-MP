@@ -317,6 +317,8 @@ public:
         return true;
     }
 
+    size_t getPageSize() const { return pageSize; }
+
 private:
     struct PageInfo
     {

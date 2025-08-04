@@ -99,6 +99,8 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
                 }
+                activeTick++;
+                totalTick++;
             }
 
             // When process is done
@@ -107,6 +109,8 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
         else
         {
             state = WorkerState::IDLE;
+            idleTick++;
+            totalTick++;
             std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick)); // idle wait
         }
     }
@@ -120,9 +124,11 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
     std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     int quantumCounter = 0;
+
     while (!CPUWorker::stopFlag.load())
     {
         Process* currentProcess = nullptr;
+        totalTick++;
 
         {
             std::lock_guard<std::mutex> lock(readyQueueMutex);
@@ -136,6 +142,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         if (!currentProcess)
         {
             state = WorkerState::IDLE;
+            idleTick++;
             std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
             continue;
         }
@@ -143,27 +150,19 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         int pid = currentProcess->getProcessId();
         size_t memSize = currentProcess->getMemoryRequirement();
 
-        // Check if already allocated
+        // Demand Paging: If not allocated yet, initialize page table
         if (!memoryAllocator->hasAllocation(pid))
         {
-            void* mem = memoryAllocator->allocate(memSize, pid);
-            if (!mem)
-            {
-                //std::cout << "[Worker " << id << "] Memory full, requeued process " << pid << "." << std::endl;
-                std::lock_guard<std::mutex> lock(readyQueueMutex);
-                readyQueue.push(currentProcess);
-                continue;
-            }
-            else
-            {
-                //std::cout << "[Worker " << id << "] Allocated memory for process " << pid << "." << std::endl;
-            }
+            memoryAllocator->allocateDemandPaged(memSize, pid);
         }
 
         currentProcess->setCoreIndex(this->id);
         currentProcess->setStatus(RUNNING);
         state = WorkerState::RUNNING;
+
         int executed = 0;
+        size_t totalPages = (memSize + memoryAllocator->getPageSize() - 1) / memoryAllocator->getPageSize();
+        size_t pageIndex = 0;
 
         while (executed < quantumCycle && currentProcess->getStatus() != FINISHED)
         {
@@ -171,6 +170,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
             {
                 state = WorkerState::SLEEPING;
                 currentProcess->tickSleep();
+                idleTick++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
 
                 std::lock_guard<std::mutex> lock(readyQueueMutex);
@@ -178,15 +178,30 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 break;
             }
 
-            state = WorkerState::RUNNING;
-           // std::cout << "Current command for " << currentProcess->getProcessId() << ": " << currentProcess->getCommandIndex() << std::endl;
-            currentProcess->execute();
+            // Simulate access to a page
+            char* pagePtr = memoryAllocator->accessPage(pid, pageIndex);
+            if (!pagePtr)
+            {
+                // Could not load page: simulate page fault handling by requeuing
+                std::lock_guard<std::mutex> lock(readyQueueMutex);
+                readyQueue.push(currentProcess);
+                break;
+            }
 
+            // Simulate execution
+            state = WorkerState::RUNNING;
+            currentProcess->execute();
+            activeTick++;
+
+            // Artificial delay if configured
             if (delayPerExec > 0)
             {
                 state = WorkerState::DELAYED;
                 for (int i = 0; i < delayPerExec; ++i)
+                {
+                    idleTick++;
                     std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
+                }
                 state = WorkerState::RUNNING;
             }
             else
@@ -194,20 +209,21 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
             }
 
+            // Cycle to next page for next access
+            pageIndex = (pageIndex + 1) % totalPages;
             executed++;
         }
 
         quantumCounter++;
+        // Optional: Snapshot memory after each quantum
         // memoryAllocator->getMemorySnapshot(quantumCounter);
 
         if (currentProcess->getStatus() == FINISHED)
         {
             memoryAllocator->deallocate(pid);
-            //std::cout << "[Worker " << id << "] Deallocated memory from process " << pid << "." << std::endl;
         }
         else if (!currentProcess->isSleeping())
         {
-            //std::cout << "[Worker " << id << "] Quantum expired, preempting process " << pid << "." << std::endl;
             std::lock_guard<std::mutex> lock(readyQueueMutex);
             readyQueue.push(currentProcess);
         }
@@ -215,3 +231,4 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         state = WorkerState::IDLE;
     }
 }
+
