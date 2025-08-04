@@ -272,6 +272,8 @@ public:
         return true;
     }
 
+    size_t getPageSize() const { return pageSize; }
+
     size_t getTotalPagesPagedIn() const
     {
         return totalPagesPagedIn;

@@ -34,6 +34,10 @@ public:
     static std::condition_variable turnCV;
     static int turn;
 
+    int getActiveTick() { return activeTick; }
+    int getIdleTick() { return idleTick; }
+    int getTotalTick() { return totalTick; }
+
 
 private:
     int id;
@@ -43,4 +47,8 @@ private:
     static std::atomic<bool> stopFlag;
     std::atomic<bool> isBusy = false;
     std::atomic<WorkerState> state = WorkerState::IDLE;
+
+    int activeTick;
+    int idleTick;
+    int totalTick;
 };
