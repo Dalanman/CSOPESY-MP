@@ -181,68 +181,78 @@ public:
         memory[address] = value;
     }
 
-    int readFromHexAddress(const std::string &hexAddr)
+    char readFromHexAddress(int pid, const std::string &hexAddr)
     {
         std::lock_guard<std::mutex> lock(memMutex);
-        size_t address = std::stoul(hexAddr, nullptr, 16);
 
-        ensurePageIsLoaded(address); // Simulate paging
+        // Convert hex string (e.g., "0x1A3F") to integer address
+        size_t virtualAddr = std::stoul(hexAddr, nullptr, 16);
+        size_t pageNumber = virtualAddr / pageSize;
+        size_t offset = virtualAddr % pageSize;
 
-        if (address >= memory.size())
-        {
-            throw std::out_of_range("Invalid memory read address");
-        }
+        ensurePageIsLoaded(pid, pageNumber); // ensure it's paged in
 
-        return memory[address]; // or reinterpret cast if you want multi-byte values
+        auto &proc = processAllocations.at(pid);
+        PageInfo &page = proc.pages.at(pageNumber);
+        size_t physicalAddr = page.startIndex + offset;
+
+        if (physicalAddr >= memory.size())
+            throw std::out_of_range("Physical address out of bounds");
+
+        return memory[physicalAddr];
     }
 
-    void writeToHexAddress(const std::string &hexAddr, int value)
+    void writeToHexAddress(int pid, const std::string &hexAddr, char value)
     {
         std::lock_guard<std::mutex> lock(memMutex);
-        size_t address = std::stoul(hexAddr, nullptr, 16);
 
-        ensurePageIsLoaded(address); // Simulate paging
+        size_t virtualAddr = std::stoul(hexAddr, nullptr, 16);
+        size_t pageNumber = virtualAddr / pageSize;
+        size_t offset = virtualAddr % pageSize;
 
-        if (address >= memory.size())
-        {
-            throw std::out_of_range("Invalid memory write address");
-        }
+        ensurePageIsLoaded(pid, pageNumber); // ensure it's paged in
 
-        memory[address] = value; // or byte-by-byte storage if memory is char-based
+        auto &proc = processAllocations.at(pid);
+        PageInfo &page = proc.pages.at(pageNumber);
+        size_t physicalAddr = page.startIndex + offset;
+
+        if (physicalAddr >= memory.size())
+            throw std::out_of_range("Physical address out of bounds");
+
+        memory[physicalAddr] = value;
     }
 
-    void ensurePageIsLoaded(int addr)
+    void ensurePageIsLoaded(int pid, size_t virtualPageNumber)
     {
         std::lock_guard<std::mutex> lock(memMutex);
-        for (auto &[pid, proc] : processAllocations)
-        {
-            for (size_t pageIndex = 0; pageIndex < proc.pages.size(); ++pageIndex)
-            {
-                PageInfo &page = proc.pages[pageIndex];
-                if (page.inMemory && addr >= page.startIndex && addr < page.startIndex + pageSize)
-                {
-                    return; // Page is already loaded
-                }
 
-                if (!page.inMemory && page.startIndex == SIZE_MAX)
-                {
-                    // Allocate a new page
-                    size_t index = findFreePage();
-                    if (index == SIZE_MAX)
-                        return;
-                    markPageAllocated(index, pageSize);
-                    page.startIndex = index;
-                    page.inMemory = true;
-                    totalPagesPagedIn++;
-                    return;
-                }
-                else if (!page.inMemory)
-                {
-                    // Try to swap in from backstore
-                    swapInFromBackstore(pid, pageIndex);
-                    return;
-                }
-            }
+        auto it = processAllocations.find(pid);
+        if (it == processAllocations.end() || virtualPageNumber >= it->second.pages.size())
+            throw std::runtime_error("Invalid process or page");
+
+        PageInfo &page = it->second.pages[virtualPageNumber];
+
+        if (page.inMemory)
+        {
+            return; // Already in memory
+        }
+
+        if (page.startIndex == SIZE_MAX)
+        {
+            // Allocate new page frame
+            size_t index = findFreePage();
+            if (index == SIZE_MAX)
+                throw std::runtime_error("Out of memory");
+            markPageAllocated(index, pageSize);
+            page.startIndex = index;
+            page.inMemory = true;
+            totalPagesPagedIn++;
+        }
+        else
+        {
+            // Swap in existing page from backing store
+            swapInFromBackstore(pid, virtualPageNumber);
+            totalPagesPagedIn++;
         }
     }
 

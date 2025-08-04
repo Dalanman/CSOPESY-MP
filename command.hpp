@@ -26,8 +26,8 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) { /* do nothing */ }
-    virtual void IOExecute(FlatMemoryAllocator* allocator = nullptr) { /* do nothing */ }
+    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList) { /* do nothing */ }
+    virtual void IOExecute(FlatMemoryAllocator *allocator = nullptr) { /* do nothing */ }
     virtual std::string toString() const = 0;
 
     virtual ~Command() = default;
@@ -38,17 +38,22 @@ class PrintCommand : public Command
     std::string message;
 
 public:
-    PrintCommand(const std::string& msg)
-        : Command(PRINT), message(msg) {
+    PrintCommand(const std::string &msg)
+        : Command(PRINT), message(msg)
+    {
     }
 
-    std::string insertSmartSpaces(const std::string& input) {
+    std::string insertSmartSpaces(const std::string &input)
+    {
         std::string result;
-        const std::string keywords[] = { "from", "process" };
+        const std::string keywords[] = {"from", "process"};
 
-        for (size_t i = 0; i < input.size(); ++i) {
-            for (const std::string& kw : keywords) {
-                if (input.substr(i, kw.size()) == kw && i > 0 && std::isalpha(input[i - 1])) {
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+            for (const std::string &kw : keywords)
+            {
+                if (input.substr(i, kw.size()) == kw && i > 0 && std::isalpha(input[i - 1]))
+                {
                     result += ' ';
                     break;
                 }
@@ -56,13 +61,16 @@ public:
 
             char curr = input[i];
 
-            if (i > 0) {
+            if (i > 0)
+            {
                 char prev = input[i - 1];
-                if (std::islower(prev) && std::isupper(curr)) {
+                if (std::islower(prev) && std::isupper(curr))
+                {
                     result += ' ';
                 }
                 else if ((std::isalpha(prev) && std::isdigit(curr)) ||
-                         (std::isdigit(prev) && std::isalpha(curr))) {
+                         (std::isdigit(prev) && std::isalpha(curr)))
+                {
                     result += ' ';
                 }
             }
@@ -73,7 +81,7 @@ public:
         return result;
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logList) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList) override
     {
         std::string output;
         const std::string prefix = "Valuefrom:";
@@ -86,7 +94,8 @@ public:
             std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
             uint16_t val = 0;
 
-            if (GlobalSymbols::symbolTable.find(varName) != GlobalSymbols::symbolTable.end()) {
+            if (GlobalSymbols::symbolTable.find(varName) != GlobalSymbols::symbolTable.end())
+            {
                 val = GlobalSymbols::symbolTable[varName];
             }
 
@@ -114,7 +123,7 @@ public:
             "PRINT(Value is correct)",
             "PRINT(Looping...)",
             "PRINT(Execution done)",
-            "PRINT(Error occurred)" };
+            "PRINT(Error occurred)"};
         return samples[rand() % samples.size()];
     }
 };
@@ -131,12 +140,12 @@ class IOCommand : public Command
     bool isSleeping = false;
 
 public:
-    IOCommand(const std::string& op, const std::string& lhs = "", const std::string& rhs = "", const std::string& extra = "", uint16_t value = 0)
+    IOCommand(const std::string &op, const std::string &lhs = "", const std::string &rhs = "", const std::string &extra = "", uint16_t value = 0)
         : Command(IO), operation(op), lhsVar(lhs), rhsVar(rhs), extraVar(extra), rhsValue(value) {}
 
     std::string getOperation() { return operation; }
 
-    void IOExecute(FlatMemoryAllocator* allocator = nullptr) override
+    void IOExecute(int pid, FlatMemoryAllocator *allocator = nullptr)
     {
         std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
 
@@ -173,7 +182,8 @@ public:
         {
             if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
                 GlobalSymbols::symbolTable[lhsVar] = 0;
-            int val = allocator->readFromHexAddress(rhsVar);
+
+            int val = allocator->readFromHexAddress(pid, rhsVar); // READ(<lhsVar>, <hexAddr>)
             GlobalSymbols::symbolTable[lhsVar] = val;
         }
         else if (operation == "WRITE" && allocator != nullptr)
@@ -181,7 +191,8 @@ public:
             int value = 0;
             if (GlobalSymbols::symbolTable.find(rhsVar) != GlobalSymbols::symbolTable.end())
                 value = GlobalSymbols::symbolTable[rhsVar];
-            allocator->writeToHexAddress(lhsVar, value);
+
+            allocator->writeToHexAddress(pid, lhsVar, value); // WRITE(<hexAddr>, <rhsVar>)
         }
     }
 
@@ -208,7 +219,7 @@ public:
             "SUBTRACT(diff, x, 20)",
             "SLEEP(5)",
             "READ(result, 0x1A3F)",
-            "WRITE(0x1A3F, result)" };
+            "WRITE(0x1A3F, result)"};
         return samples[rand() % samples.size()];
     }
 
@@ -239,7 +250,7 @@ public:
             "FOR([ADD(x, y, z), SUBTRACT(z, x, y)], 3)",
             "FOR([PRINT(Hello World from " + name + "), SLEEP(2), PRINT(Hello World from " + name + ")], 4)",
             "FOR([FOR([PRINT(Hello World from " + name + "), SLEEP(1)], 2)], 2)",
-            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(Value from:b)], 3)" };
+            "FOR([DECLARE(a, 10), ADD(b, a, 5), PRINT(Value from:b)], 3)"};
         return samples[rand() % samples.size()];
     }
     void addCommand(std::shared_ptr<Command> cmd)
@@ -267,7 +278,7 @@ public:
 
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (auto& cmd : body)
+            for (auto &cmd : body)
             {
                 if (cmd->type == FOR)
                 {
@@ -293,7 +304,7 @@ public:
         }
 
         // Also push depth to any nested FORs already added
-        for (auto& cmd : body)
+        for (auto &cmd : body)
         {
             if (cmd->type == FOR)
             {
@@ -306,11 +317,11 @@ public:
         }
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logs) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logs) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (const auto& cmd : body)
+            for (const auto &cmd : body)
             {
                 if (cmd->type == PRINT)
                 {
@@ -333,11 +344,11 @@ public:
         return nestingDepth;
     }
 
-    void IOExecute(FlatMemoryAllocator* allocator = nullptr) override
+    void IOExecute(FlatMemoryAllocator *allocator = nullptr) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
-            for (const auto& cmd : body)
+            for (const auto &cmd : body)
             {
                 if (cmd->type == IO)
                 {
