@@ -8,6 +8,7 @@
 #include "symbolTable.hpp"
 #include <vector>
 #include "memory.hpp"
+#include <regex>
 using namespace GlobalSymbols;
 
 extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
@@ -91,7 +92,7 @@ public:
             std::string varName = message.substr(prefix.length());
             varName.erase(0, varName.find_first_not_of(" \t"));
 
-            std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
+            std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
             uint16_t val = 0;
 
             if (GlobalSymbols::symbolTable.find(varName) != GlobalSymbols::symbolTable.end())
@@ -145,33 +146,36 @@ public:
 
     std::string getOperation() { return operation; }
 
-    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
+    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) 
     {
-        std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
+        std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
+        auto& table = GlobalSymbols::symbolTable;
+
+        std::string temporary;
 
         if (operation == "DECLARE")
         {
-            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
+            if (table.find(lhsVar) == table.end())
             {
-                GlobalSymbols::symbolTable[lhsVar] = rhsValue;
+                table[lhsVar] = rhsValue;
             }
         }
         else if (operation == "ADD" || operation == "SUBTRACT")
         {
-            if (isalpha(rhsVar[0]) && GlobalSymbols::symbolTable.find(rhsVar) == GlobalSymbols::symbolTable.end())
-                GlobalSymbols::symbolTable[rhsVar] = 0;
-            if (isalpha(extraVar[0]) && GlobalSymbols::symbolTable.find(extraVar) == GlobalSymbols::symbolTable.end())
-                GlobalSymbols::symbolTable[extraVar] = 0;
-            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
-                GlobalSymbols::symbolTable[lhsVar] = 0;
+            if (isalpha(rhsVar[0]) && table.find(rhsVar) == table.end())
+                table[rhsVar] = 0;
+            if (isalpha(extraVar[0]) && table.find(extraVar) == table.end())
+                table[extraVar] = 0;
+            if (table.find(lhsVar) == table.end())
+                table[lhsVar] = 0;
 
-            uint16_t rhsVal = isalpha(rhsVar[0]) ? GlobalSymbols::symbolTable[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
-            uint16_t extraVal = isalpha(extraVar[0]) ? GlobalSymbols::symbolTable[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
+            uint16_t rhsVal = isalpha(rhsVar[0]) ? table[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
+            uint16_t extraVal = isalpha(extraVar[0]) ? table[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
 
             if (operation == "ADD")
-                GlobalSymbols::symbolTable[lhsVar] = rhsVal + extraVal;
+                table[lhsVar] = rhsVal + extraVal;
             else
-                GlobalSymbols::symbolTable[lhsVar] = rhsVal - extraVal;
+                table[lhsVar] = rhsVal - extraVal;
         }
         else if (operation == "SLEEP")
         {
@@ -180,17 +184,27 @@ public:
         }
         else if (operation == "READ" && memoryAllocator != nullptr)
         {
-            if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
-                GlobalSymbols::symbolTable[lhsVar] = 0;
+            if (table.find(lhsVar) == table.end())
+                table[lhsVar] = 0;
+
+            if (!std::regex_match(rhsVar, std::regex("^0x[0-9A-Fa-f]+$")))
+                throw std::runtime_error("Invalid hex address format in WRITE: " + rhsVar);
 
             int val = memoryAllocator->readFromHexAddress(pid, rhsVar); // READ(<lhsVar>, <hexAddr>)
-            GlobalSymbols::symbolTable[lhsVar] = val;
+            table[lhsVar] = val;
         }
         else if (operation == "WRITE" && memoryAllocator != nullptr)
         {
             int value = 0;
-            if (GlobalSymbols::symbolTable.find(rhsVar) != GlobalSymbols::symbolTable.end())
-                value = GlobalSymbols::symbolTable[rhsVar];
+            if (table.find(rhsVar) != table.end())
+                value = table[rhsVar];
+
+            temporary = lhsVar;
+            lhsVar = rhsVar;
+            rhsVar = temporary;
+
+            if (!std::regex_match(lhsVar, std::regex("^0x[0-9A-Fa-f]+$")))
+                throw std::runtime_error("Invalid hex address format in READ: " + lhsVar);
 
             memoryAllocator->writeToHexAddress(pid, lhsVar, value); // WRITE(<hexAddr>, <rhsVar>)
         }
@@ -218,8 +232,8 @@ public:
             "ADD(z, x, y)",
             "SUBTRACT(diff, x, 20)",
             "SLEEP(5)",
-            "READ(result, 0x1A3F)",
-            "WRITE(0x1A3F, result)"};
+            "READ(x, 0x1A3F)",
+            "WRITE(0x1A3F, y)"};
         return samples[rand() % samples.size()];
     }
 

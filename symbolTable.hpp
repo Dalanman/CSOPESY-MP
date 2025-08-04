@@ -5,5 +5,5 @@
 
 namespace GlobalSymbols {
     extern std::unordered_map<std::string, uint16_t> symbolTable;
-    extern std::mutex symbolTableMutex;
+    extern std::recursive_mutex symbolTableMutex;
 }

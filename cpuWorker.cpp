@@ -130,6 +130,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         Process* currentProcess = nullptr;
         totalTick++;
 
+        // Only lock long enough to pop from queue
         {
             std::lock_guard<std::mutex> lock(readyQueueMutex);
             if (!readyQueue.empty())
@@ -150,7 +151,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         int pid = currentProcess->getProcessId();
         size_t memSize = currentProcess->getMemoryRequirement();
 
-        // Demand Paging: If not allocated yet, initialize page table
+        // Use demand paging if not yet allocated
         if (!memoryAllocator->hasAllocation(pid))
         {
             memoryAllocator->allocateDemandPaged(memSize, pid);
@@ -173,27 +174,30 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 idleTick++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
 
-                std::lock_guard<std::mutex> lock(readyQueueMutex);
-                readyQueue.push(currentProcess);
+                // Requeue the sleeping process (lock briefly)
+                {
+                    std::lock_guard<std::mutex> lock(readyQueueMutex);
+                    readyQueue.push(currentProcess);
+                }
                 break;
             }
 
-            // Simulate access to a page
+            // Simulate a page access before executing
             char* pagePtr = memoryAllocator->accessPage(pid, pageIndex);
             if (!pagePtr)
             {
-                // Could not load page: simulate page fault handling by requeuing
-                std::lock_guard<std::mutex> lock(readyQueueMutex);
-                readyQueue.push(currentProcess);
+                // Page could not be loaded (frame shortage), requeue
+                {
+                    std::lock_guard<std::mutex> lock(readyQueueMutex);
+                    readyQueue.push(currentProcess);
+                }
                 break;
             }
 
-            // Simulate execution
-            state = WorkerState::RUNNING;
+            // Execute process command — may internally call IO or memory again
             currentProcess->execute(memoryAllocator);
             activeTick++;
 
-            // Artificial delay if configured
             if (delayPerExec > 0)
             {
                 state = WorkerState::DELAYED;
@@ -209,14 +213,11 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                 std::this_thread::sleep_for(std::chrono::milliseconds(cpuTick));
             }
 
-            // Cycle to next page for next access
             pageIndex = (pageIndex + 1) % totalPages;
             executed++;
         }
 
         quantumCounter++;
-        // Optional: Snapshot memory after each quantum
-        // memoryAllocator->getMemorySnapshot(quantumCounter);
 
         if (currentProcess->getStatus() == FINISHED)
         {
