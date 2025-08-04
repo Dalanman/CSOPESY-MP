@@ -113,7 +113,7 @@ void Process::setRunTimeStamp()
     runTimeStamp = oss2.str();
 }
 
-void Process::execute(FlatMemoryAllocator *allocator = nullptr)
+void Process::execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     // Initialize on first run
     if (status == READY)
@@ -189,7 +189,7 @@ void Process::execute(FlatMemoryAllocator *allocator = nullptr)
     switch (currentCommand->type)
     {
     case PRINT:
-        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs);
+        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs, memoryAllocator);
         commandIndex++;
         break;
 
@@ -204,7 +204,7 @@ void Process::execute(FlatMemoryAllocator *allocator = nullptr)
         else
         {
             // Pass in this process's PID and the allocator
-            ioCmd->IOExecute(this->processId, allocator);
+            ioCmd->IOExecute(this->processId, memoryAllocator);
             commandIndex++;
         }
         break;

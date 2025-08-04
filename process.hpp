@@ -32,7 +32,7 @@ public:
     // void displayDetails() const;
     // void processSMI();
     // void getNextCommand();
-    void execute(FlatMemoryAllocator *allocator = nullptr);
+    void execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void setRunTimeStamp();
     void setCoreIndex(int core) { coreIndex = core; }
     void setStatus(Status newStatus) { status = newStatus; }

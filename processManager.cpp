@@ -496,7 +496,7 @@ bool ProcessManager::allProcessesDone()
     return true;
 }
 
-void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec)
+void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     workers.clear();
     threads.clear();
@@ -518,7 +518,9 @@ void ProcessManager::executeFCFS(int numCpu, int cpuTick, int quantumCycle, int 
             cpuTick,
             delayPerExec,
             std::ref(readyQueue),
-            std::ref(readyQueueMutex));
+            std::ref(readyQueueMutex),
+            memoryAllocator
+        );
     }
 
     std::cout << "Enter a command: ";

@@ -19,7 +19,7 @@ public:
     void UpdateProcessScreen();
     bool allProcessesDone();
     std::string toString(const std::chrono::time_point<std::chrono::system_clock>& timePoint);
-    void executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec);
+    void executeFCFS(int numCpu, int cpuTick, int quantumCycle, int delayPerExec, std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void cancelAll();
     void setCore(int numCpu) {
         cores = numCpu;

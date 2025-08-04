@@ -52,7 +52,7 @@ bool CPUWorker::busyStatus()
 
 void CPUWorker::runWorker(int cpuTick, int delayPerExec,
                           std::queue<Process *> &readyQueue,
-                          std::mutex &readyQueueMutex)
+                          std::mutex &readyQueueMutex, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     while (!CPUWorker::stopFlag.load())
     {
@@ -84,7 +84,7 @@ void CPUWorker::runWorker(int cpuTick, int delayPerExec,
                 }
 
                 state = WorkerState::RUNNING;
-                currentProcess->execute();
+                currentProcess->execute(memoryAllocator);
 
                 if (delayPerExec > 0)
                 {
@@ -190,7 +190,7 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
 
             // Simulate execution
             state = WorkerState::RUNNING;
-            currentProcess->execute();
+            currentProcess->execute(memoryAllocator);
             activeTick++;
 
             // Artificial delay if configured

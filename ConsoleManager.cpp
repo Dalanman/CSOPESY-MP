@@ -386,7 +386,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                 if (configReader->getSchedulerType() == 0)
                 {
                     // std::cout << "Executing FCFS" << std::endl;
-                    Scheduler = std::thread(&ProcessManager::executeFCFS, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec);
+                    Scheduler = std::thread(&ProcessManager::executeFCFS, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec, memoryAllocator);
                 }
                 else 
                 {

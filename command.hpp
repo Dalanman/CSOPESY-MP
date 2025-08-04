@@ -26,8 +26,8 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList) { /* do nothing */ }
-    virtual void IOExecute(FlatMemoryAllocator *allocator = nullptr) { /* do nothing */ }
+    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
+    virtual void IOExecute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
     virtual std::string toString() const = 0;
 
     virtual ~Command() = default;
@@ -81,7 +81,7 @@ public:
         return result;
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
         std::string output;
         const std::string prefix = "Valuefrom:";
@@ -145,7 +145,7 @@ public:
 
     std::string getOperation() { return operation; }
 
-    void IOExecute(int pid, FlatMemoryAllocator *allocator = nullptr)
+    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
     {
         std::lock_guard<std::mutex> lock(GlobalSymbols::symbolTableMutex);
 
@@ -178,21 +178,21 @@ public:
             sleepTicks = static_cast<uint8_t>(std::stoi(lhsVar));
             isSleeping = true;
         }
-        else if (operation == "READ" && allocator != nullptr)
+        else if (operation == "READ" && memoryAllocator != nullptr)
         {
             if (GlobalSymbols::symbolTable.find(lhsVar) == GlobalSymbols::symbolTable.end())
                 GlobalSymbols::symbolTable[lhsVar] = 0;
 
-            int val = allocator->readFromHexAddress(pid, rhsVar); // READ(<lhsVar>, <hexAddr>)
+            int val = memoryAllocator->readFromHexAddress(pid, rhsVar); // READ(<lhsVar>, <hexAddr>)
             GlobalSymbols::symbolTable[lhsVar] = val;
         }
-        else if (operation == "WRITE" && allocator != nullptr)
+        else if (operation == "WRITE" && memoryAllocator != nullptr)
         {
             int value = 0;
             if (GlobalSymbols::symbolTable.find(rhsVar) != GlobalSymbols::symbolTable.end())
                 value = GlobalSymbols::symbolTable[rhsVar];
 
-            allocator->writeToHexAddress(pid, lhsVar, value); // WRITE(<hexAddr>, <rhsVar>)
+            memoryAllocator->writeToHexAddress(pid, lhsVar, value); // WRITE(<hexAddr>, <rhsVar>)
         }
     }
 
@@ -317,7 +317,7 @@ public:
         }
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logs) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logs, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
@@ -325,15 +325,15 @@ public:
             {
                 if (cmd->type == PRINT)
                 {
-                    cmd->printExecute(timestamp, coreIndex, logs);
+                    cmd->printExecute(timestamp, coreIndex, logs, memoryAllocator);
                 }
                 else if (cmd->type == IO)
                 {
-                    cmd->IOExecute();
+                    cmd->IOExecute(memoryAllocator);
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->printExecute(timestamp, coreIndex, logs); // Recursive call for nested FORs
+                    cmd->printExecute(timestamp, coreIndex, logs, memoryAllocator); // Recursive call for nested FORs
                 }
             }
         }
@@ -344,7 +344,7 @@ public:
         return nestingDepth;
     }
 
-    void IOExecute(FlatMemoryAllocator *allocator = nullptr) override
+    void IOExecute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
@@ -352,11 +352,11 @@ public:
             {
                 if (cmd->type == IO)
                 {
-                    cmd->IOExecute();
+                    cmd->IOExecute(memoryAllocator);
                 }
                 else if (cmd->type == FOR)
                 {
-                    cmd->IOExecute(); // Recursive call for nested FORs
+                    cmd->IOExecute(memoryAllocator); // Recursive call for nested FORs
                 }
                 // else if (cmd->type == PRINT)
                 // {

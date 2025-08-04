@@ -23,7 +23,7 @@ public:
     void assignProcess(std::shared_ptr<Process> p);
     bool hasProcess() const;
     int getId() const;
-    void runWorker(int cpuTick, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex);
+    void runWorker(int cpuTick, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex, std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void runRRWorker(int cpuTick, int quantumCycle, int delayPerExec, std::queue<Process *> &readyQueue, std::mutex &readyQueueMutex, std::shared_ptr<FlatMemoryAllocator> memoryAllocator);
     void stop();
     static void stopAllWorkers();
