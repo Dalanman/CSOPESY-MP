@@ -86,7 +86,6 @@ public:
             }
             processAllocations.erase(it);
         }
-
     }
 
     std::string visualizeMemory() override
@@ -111,6 +110,10 @@ public:
         processAllocations[processId] = procInfo;
     }
 
+    bool hasAllocation(int processId) const
+    {
+        return processAllocations.find(processId) != processAllocations.end();
+    }
     char *accessPage(int processId, size_t pageIndex)
     {
         auto it = processAllocations.find(processId);
