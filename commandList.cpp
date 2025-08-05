@@ -73,7 +73,6 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
         std::string trimmedLine = trim(line);
         if (trimmedLine.empty()) continue;
 
-        // 1. Handle the special case for PRINT, which can contain spaces and concatenation
         if (trimmedLine.rfind("PRINT(", 0) == 0 && trimmedLine.back() == ')')
         {
             size_t start = trimmedLine.find('(');
@@ -104,7 +103,6 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
             continue; // Go to the next command string
         }
 
-        // 2. Canonicalizer: Convert space-separated commands into the COMMAND(...) format
         if (trimmedLine.find('(') == std::string::npos) {
             size_t first_space = trimmedLine.find(' ');
             if (first_space != std::string::npos) {
@@ -123,10 +121,8 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
             line = trimmedLine;
         }
 
-        // 3. Clean the newly formatted string by removing any remaining spaces
         line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 
-        // 4. Parse the now-canonical command string
         if (line.find("DECLARE(") == 0 && line.back() == ')')
         {
             std::string args = line.substr(8, line.size() - 9);
@@ -187,7 +183,6 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
         }
         else
         {
-            // If command is still not recognized, it's an error.
             return false;
         }
     }

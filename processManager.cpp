@@ -271,8 +271,17 @@ void ProcessManager::UpdateProcessScreen()
     std::cout << "----------------------------------" << std::endl;
     std::cout << "Finished processes: " << std::endl;
 
+
     for (const auto &p : process)
     {
+        if (p->getStatus() == 4)
+        {
+            std::cout << p->getProcessName() << "\t"
+                << p->getArrivalTimestamp() << "\t"
+                << "Cancelled\t"
+                << std::endl;
+        }
+
         if (p->getStatus() == 3)
         {
             std::cout << p->getProcessName() << "\t"
@@ -337,7 +346,7 @@ void ProcessManager::processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAlloc
         {
             std::cout << p->getProcessName() << "\t"
                 << p->getMemoryRequirement() << "\t" 
-                << memoryAllocator->isProcessInMemory(p->getProcessId()) << std::endl;
+                << std::endl;
         }
     }
 
@@ -526,13 +535,11 @@ void ProcessManager::executeRR(int numCpu, int cpuTick, int quantumCycle, int de
     workers.clear();
     threads.clear();
 
-    // Create CPUWorkers (but don't assign specific processes)
     for (int i = 0; i < numCpu; ++i)
     {
         workers.emplace_back(std::make_unique<CPUWorker>(i, numCpu));
     }
 
-    // Start threads using runRRWorker with the shared readyQueue
     for (auto &worker : workers)
     {
         worker->assignedProcess();

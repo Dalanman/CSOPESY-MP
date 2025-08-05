@@ -36,10 +36,8 @@ public:
 class PrintCommand : public Command
 {
 public:
-    // This enum will distinguish between literal strings and variable names
     enum class PrintPartType { LITERAL, VARIABLE };
 
-    // This struct will hold each part of the print statement
     struct PrintPart {
         PrintPartType type;
         std::string data;
@@ -52,7 +50,6 @@ public:
     // The constructor is now simpler
     PrintCommand() : Command(PRINT) {}
 
-    // A new method for the parser to add parts
     void addPart(PrintPartType type, std::string data) {
         parts.push_back({type, data});
     }
@@ -144,17 +141,14 @@ public:
         {
             if (table.find(lhsVar) == table.end())
             {
-                // 1. Allocate a virtual address for the variable (size of uint16_t is 2 bytes).
+                
                 uint32_t newAddr = memoryAllocator->allocateVariable(pid, sizeof(uint16_t));
-                // 2. Store the new address in the symbol table.
                 table[lhsVar] = newAddr;
-                // 3. Write the initial value to that memory address.
                 memoryAllocator->writeValueAtVirtualAddress(pid, newAddr, rhsValue);
             }
         }
         else if (operation == "ADD" || operation == "SUBTRACT")
         {
-            // Helper lambda to get a value, either from a variable in memory or from a literal number.
             auto getValue = [&](const std::string &varOrLiteral) -> uint16_t
             {
                 if (isalpha(varOrLiteral[0]))

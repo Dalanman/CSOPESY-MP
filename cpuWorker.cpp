@@ -179,15 +179,13 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
                     std::lock_guard<std::mutex> lock(readyQueueMutex);
                     readyQueue.push(currentProcess);
                 }
-                currentProcess = nullptr; // Mark as no longer held by this worker
+                currentProcess = nullptr; 
                 break;
             }
 
-            // Simulate a page access before executing
+
             if (totalPages > 0) {
                 memoryAllocator->accessPage(pid, pageIndex);
-                // FIX: The 'if (!pagePtr)' check is removed, as our new accessPage
-                // will throw an exception on a critical error, not return nullptr.
             }
 
             currentProcess->execute(memoryAllocator);
@@ -216,13 +214,11 @@ void CPUWorker::runRRWorker(int cpuTick, int quantumCycle, int delayPerExec,
         if (currentProcess) {
             if (currentProcess->getStatus() == FINISHED)
             {
-                // ADDED DEBUG LINE
                 // std::cout << ">>> PROCESS " << pid << " FINISHED. CALLING DEALLOCATE. <<<" << std::endl;
                 memoryAllocator->deallocate(pid);
             }
             else
             {
-                // FIX: Set the process status back to READY before putting it in the queue.
                 currentProcess->setStatus(READY);
                 std::lock_guard<std::mutex> lock(readyQueueMutex);
                 readyQueue.push(currentProcess);

@@ -261,7 +261,6 @@ private:
     std::vector<size_t> loadedFramesQueue;
 
 
-    // These two functions must be updated to pass the virtualAddr to ensurePageIsLoaded
     char readFromHexAddress(int pid, uint32_t virtualAddr)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
@@ -313,17 +312,13 @@ private:
 
     void swapOutToBackstore(int processId, size_t pageIndex)
     {
-        // --- START OF FINAL FIX ---
-        // Use an iterator to find the process info. This is the most robust way
-        // to get a modifiable reference to the object inside the map.
+     
         auto it = processAllocations.find(processId);
         if (it == processAllocations.end()) {
-            // This should not happen if the system state is consistent, but it's a good safeguard.
             return;
         }
-        // Get a reference to the ProcessInfo directly from the iterator.
+        
         ProcessInfo& proc = it->second;
-        // --- END OF FINAL FIX ---
 
         if (pageIndex >= proc.pages.size() || !proc.pages[pageIndex].inMemory)
             return;
@@ -337,10 +332,8 @@ private:
         }
         outFile << "\n";
 
-        // This line will now correctly and permanently modify the state of the original object.
         proc.pages[pageIndex].inMemory = false;
 
-        // We must clear the memory contents of the evicted frame
         for (size_t i = start; i < start + pageSize; ++i)
         {
             if (i < memory.size()) {

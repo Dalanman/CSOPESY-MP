@@ -298,72 +298,75 @@ bool ConsoleManager::handleCommand(const string& input) {
 
                     try {
                         memSize = std::stoul(memSizeStr);
+
+                        // Parse quoted instructions, handling escaped quotes
+                        char ch;
+                        // Skip until first quote
+                        while (iss.get(ch)) {
+                            if (ch == '"') break;
+                        }
+                        bool inEscape = false;
+                        bool inQuotes = true;
+                        instructionsBlock.clear();
+                        while (inQuotes && iss.get(ch)) {
+                            if (inEscape) {
+                                instructionsBlock += ch;
+                                inEscape = false;
+                            }
+                            else if (ch == '\\') {
+                                inEscape = true;
+                            }
+                            else if (ch == '"') {
+                                inQuotes = false;
+                            }
+                            else {
+                                instructionsBlock += ch;
+                            }
+                        }
+                        if (instructionsBlock.empty()) {
+                            cout << RED << "> Error: Missing or invalid instructions for 'screen -c' command. Enclose instructions in double quotes." << RESET << endl;
+                            cout << "\nEnter a command: ";
+                        }
+
+                        // Split instructions by ';'
+                        std::vector<std::string> instructions;
+                        std::istringstream instrStream(instructionsBlock);
+                        std::string instr;
+                        while (std::getline(instrStream, instr, ';')) {
+                            // Trim leading/trailing spaces
+                            instr.erase(instr.begin(), std::find_if(instr.begin(), instr.end(), [](int ch) { return !std::isspace(ch); }));
+                            instr.erase(std::find_if(instr.rbegin(), instr.rend(), [](int ch) { return !std::isspace(ch); }).base(), instr.end());
+                            if (!instr.empty())
+                                instructions.push_back(instr);
+                        }
+
+                        if (instructions.empty()) {
+                            cout << RED << "> Error: No valid instructions found for 'screen -c' command." << RESET << endl;
+                            cout << "\nEnter a command: ";
+                        }
+                        else if (instructions.size() > 50) {
+                            cout << RED << "> Error: Instructions too long. Maximum size is 50." << RESET << endl;
+                            cout << "\nEnter a command: ";
+                        }
+                        else {
+                            // create proc
+                            pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions, maxMemPerProcess);
+
+                            cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
+                            cout << YELLOW << "Instructions:" << RESET << endl;
+                            for (size_t i = 0; i < instructions.size(); ++i) {
+                                cout << (i + 1) << ": " << instructions[i] << endl;
+                            }
+                            cout << "\nEnter a command: ";
+                        }
+
                     }
                     catch (...) {
                         cout << RED << "> Error: Invalid memory size for 'screen -c' command." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
 
-                    // Parse quoted instructions, handling escaped quotes
-                    char ch;
-                    // Skip until first quote
-                    while (iss.get(ch)) {
-                        if (ch == '"') break;
-                    }
-                    bool inEscape = false;
-                    bool inQuotes = true;
-                    instructionsBlock.clear();
-                    while (inQuotes && iss.get(ch)) {
-                        if (inEscape) {
-                            instructionsBlock += ch;
-                            inEscape = false;
-                        }
-                        else if (ch == '\\') {
-                            inEscape = true;
-                        }
-                        else if (ch == '"') {
-                            inQuotes = false;
-                        }
-                        else {
-                            instructionsBlock += ch;
-                        }
-                    }
-                    if (instructionsBlock.empty()) {
-                        cout << RED << "> Error: Missing or invalid instructions for 'screen -c' command. Enclose instructions in double quotes." << RESET << endl;
-                        cout << "\nEnter a command: ";
-                    }
-
-                    // Split instructions by ';'
-                    std::vector<std::string> instructions;
-                    std::istringstream instrStream(instructionsBlock);
-                    std::string instr;
-                    while (std::getline(instrStream, instr, ';')) {
-                        // Trim leading/trailing spaces
-                        instr.erase(instr.begin(), std::find_if(instr.begin(), instr.end(), [](int ch) { return !std::isspace(ch); }));
-                        instr.erase(std::find_if(instr.rbegin(), instr.rend(), [](int ch) { return !std::isspace(ch); }).base(), instr.end());
-                        if (!instr.empty())
-                            instructions.push_back(instr);
-                    }
-
-                    if (instructions.empty()) {
-                        cout << RED << "> Error: No valid instructions found for 'screen -c' command." << RESET << endl;
-                        cout << "\nEnter a command: ";
-                    }
-                    else if (instructions.size() > 50) {
-                        cout << RED << "> Error: Instructions too long. Maximum size is 50." << RESET << endl;
-                        cout << "\nEnter a command: ";
-                    }
-                    else {
-                        // create proc
-                        pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions, maxMemPerProcess);
-
-                        cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
-                        cout << YELLOW << "Instructions:" << RESET << endl;
-                        for (size_t i = 0; i < instructions.size(); ++i) {
-                            cout << (i + 1) << ": " << instructions[i] << endl;
-                        }
-                        cout << "\nEnter a command: ";
-                    }
+                    
                 }
             }
             else if (input == "process-smi") {
