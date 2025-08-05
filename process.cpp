@@ -189,7 +189,7 @@ void Process::execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
     switch (currentCommand->type)
     {
     case PRINT:
-        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs, memoryAllocator);
+        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs, processId, memoryAllocator);
         commandIndex++;
         break;
 

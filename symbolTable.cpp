@@ -1,6 +1,7 @@
 #include "symbolTable.hpp"
 
 namespace GlobalSymbols {
-    std::unordered_map<std::string, uint16_t> symbolTable;
+    // Definition updated to store uint32_t addresses.
+    std::unordered_map<std::string, uint32_t> symbolTable;
     std::recursive_mutex symbolTableMutex;
 }

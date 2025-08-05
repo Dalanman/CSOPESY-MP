@@ -11,8 +11,6 @@
 #include <regex>
 using namespace GlobalSymbols;
 
-extern std::unordered_map<std::string, int> symbolTable; // Global symbol table
-
 enum CommandType
 {
     IO,    // ADD, SUBTRACT, DECLARE, SLEEP, READ, WRITE
@@ -27,8 +25,8 @@ public:
 
     Command(CommandType t) : type(t) {}
 
-    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
-    virtual void IOExecute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
+    virtual void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
+    virtual void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) { /* do nothing */ }
     virtual std::string toString() const = 0;
 
     virtual ~Command() = default;
@@ -82,7 +80,7 @@ public:
         return result;
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
     {
         std::string output;
         const std::string prefix = "Valuefrom:";
@@ -93,11 +91,14 @@ public:
             varName.erase(0, varName.find_first_not_of(" \t"));
 
             std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
-            uint16_t val = 0;
+            uint16_t val = 0; // Default value if not found
 
-            if (GlobalSymbols::symbolTable.find(varName) != GlobalSymbols::symbolTable.end())
+            if (GlobalSymbols::symbolTable.count(varName))
             {
-                val = GlobalSymbols::symbolTable[varName];
+                // 1. Get address from symbol table
+                uint32_t varAddr = GlobalSymbols::symbolTable.at(varName);
+                // 2. Read value from that address in memory (this can trigger demand paging)
+                val = memoryAllocator->readValueFromVirtualAddress(pid, varAddr);
             }
 
             output = "Value from: " + varName + " = " + std::to_string(val);
@@ -146,67 +147,77 @@ public:
 
     std::string getOperation() { return operation; }
 
-    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) 
+    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
     {
         std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
-        auto& table = GlobalSymbols::symbolTable;
-
-        std::string temporary;
+        auto &table = GlobalSymbols::symbolTable;
 
         if (operation == "DECLARE")
         {
             if (table.find(lhsVar) == table.end())
             {
-                table[lhsVar] = rhsValue;
+                // 1. Allocate a virtual address for the variable (size of uint16_t is 2 bytes).
+                uint32_t newAddr = memoryAllocator->allocateVariable(pid, sizeof(uint16_t));
+                // 2. Store the new address in the symbol table.
+                table[lhsVar] = newAddr;
+                // 3. Write the initial value to that memory address.
+                memoryAllocator->writeValueAtVirtualAddress(pid, newAddr, rhsValue);
             }
         }
         else if (operation == "ADD" || operation == "SUBTRACT")
         {
-            if (isalpha(rhsVar[0]) && table.find(rhsVar) == table.end())
-                table[rhsVar] = 0;
-            if (isalpha(extraVar[0]) && table.find(extraVar) == table.end())
-                table[extraVar] = 0;
-            if (table.find(lhsVar) == table.end())
-                table[lhsVar] = 0;
+            // Helper lambda to get a value, either from a variable in memory or from a literal number.
+            auto getValue = [&](const std::string &varOrLiteral) -> uint16_t
+            {
+                if (isalpha(varOrLiteral[0]))
+                { // It's a variable
+                    if (table.count(varOrLiteral))
+                    {
+                        uint32_t addr = table.at(varOrLiteral);
+                        return memoryAllocator->readValueFromVirtualAddress(pid, addr);
+                    }
+                    return 0; // Variable not found, return 0 as default
+                }
+                return static_cast<uint16_t>(std::stoi(varOrLiteral)); // It's a literal
+            };
 
-            uint16_t rhsVal = isalpha(rhsVar[0]) ? table[rhsVar] : static_cast<uint16_t>(std::stoi(rhsVar));
-            uint16_t extraVal = isalpha(extraVar[0]) ? table[extraVar] : static_cast<uint16_t>(std::stoi(extraVar));
+            uint16_t val1 = getValue(rhsVar);
+            uint16_t val2 = getValue(extraVar);
+            uint16_t result = (operation == "ADD") ? (val1 + val2) : (val1 - val2);
 
-            if (operation == "ADD")
-                table[lhsVar] = rhsVal + extraVal;
-            else
-                table[lhsVar] = rhsVal - extraVal;
+            // Check if destination variable exists and write the result to its address.
+            if (table.count(lhsVar))
+            {
+                uint32_t destAddr = table.at(lhsVar);
+                memoryAllocator->writeValueAtVirtualAddress(pid, destAddr, result);
+            }
+        }
+        else if (operation == "READ") // Syntax: READ(<variable_to_store_in>, <hex_address_to_read_from>)
+        {
+            if (table.count(lhsVar))
+            {
+                uint32_t destVarAddr = table.at(lhsVar);
+                uint32_t sourceMemAddr = std::stoul(rhsVar, nullptr, 16);
+
+                uint16_t valueRead = memoryAllocator->readValueFromVirtualAddress(pid, sourceMemAddr);
+                memoryAllocator->writeValueAtVirtualAddress(pid, destVarAddr, valueRead);
+            }
+        }
+        else if (operation == "WRITE") // Syntax: WRITE(<hex_address_to_write_to>, <variable_to_read_from>)
+        {
+            if (table.count(rhsVar))
+            {
+                uint32_t sourceVarAddr = table.at(rhsVar);
+                uint32_t destMemAddr = std::stoul(lhsVar, nullptr, 16);
+
+                uint16_t valueToWrite = memoryAllocator->readValueFromVirtualAddress(pid, sourceVarAddr);
+                memoryAllocator->writeValueAtVirtualAddress(pid, destMemAddr, valueToWrite);
+            }
         }
         else if (operation == "SLEEP")
         {
             sleepTicks = static_cast<uint8_t>(std::stoi(lhsVar));
             isSleeping = true;
-        }
-        else if (operation == "READ" && memoryAllocator != nullptr)
-        {
-            if (table.find(lhsVar) == table.end())
-                table[lhsVar] = 0;
-
-            if (!std::regex_match(rhsVar, std::regex("^0x[0-9A-Fa-f]+$")))
-                throw std::runtime_error("Invalid hex address format in WRITE: " + rhsVar);
-
-            int val = memoryAllocator->readFromHexAddress(pid, rhsVar); // READ(<lhsVar>, <hexAddr>)
-            table[lhsVar] = val;
-        }
-        else if (operation == "WRITE" && memoryAllocator != nullptr)
-        {
-            int value = 0;
-            if (table.find(rhsVar) != table.end())
-                value = table[rhsVar];
-
-            temporary = lhsVar;
-            lhsVar = rhsVar;
-            rhsVar = temporary;
-
-            if (!std::regex_match(lhsVar, std::regex("^0x[0-9A-Fa-f]+$")))
-                throw std::runtime_error("Invalid hex address format in READ: " + lhsVar);
-
-            memoryAllocator->writeToHexAddress(pid, lhsVar, value); // WRITE(<hexAddr>, <rhsVar>)
         }
     }
 
@@ -331,24 +342,14 @@ public:
         }
     }
 
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logs, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string>* logs, int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
             for (const auto &cmd : body)
             {
-                if (cmd->type == PRINT)
-                {
-                    cmd->printExecute(timestamp, coreIndex, logs, memoryAllocator);
-                }
-                else if (cmd->type == IO)
-                {
-                    cmd->IOExecute(memoryAllocator);
-                }
-                else if (cmd->type == FOR)
-                {
-                    cmd->printExecute(timestamp, coreIndex, logs, memoryAllocator); // Recursive call for nested FORs
-                }
+                // Pass the pid down in the recursive call
+                cmd->printExecute(timestamp, coreIndex, logs, pid, memoryAllocator);
             }
         }
     }
@@ -358,25 +359,14 @@ public:
         return nestingDepth;
     }
 
-    void IOExecute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
+    void IOExecute(int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
         for (int i = 0; i < repeatCount; ++i)
         {
             for (const auto &cmd : body)
             {
-                if (cmd->type == IO)
-                {
-                    cmd->IOExecute(memoryAllocator);
-                }
-                else if (cmd->type == FOR)
-                {
-                    cmd->IOExecute(memoryAllocator); // Recursive call for nested FORs
-                }
-                // else if (cmd->type == PRINT)
-                // {
-                //     std::ofstream dummyOut("/dev/null"); // Optional: discard output
-                //     cmd->printExecute(dummyOut, logs);
-                // }
+                // Pass the pid down in the recursive call
+                cmd->IOExecute(pid, memoryAllocator);
             }
         }
     }
