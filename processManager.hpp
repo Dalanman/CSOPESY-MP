@@ -37,7 +37,7 @@ public:
     int getAvailableCores();
     void makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
     void alternatingCase(int cpuTick, int minIns, int maxIns, int BPF);
-	void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions);
+	void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions, size_t maxMemPerProcess);
     
     void vmstat(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);
     void processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);

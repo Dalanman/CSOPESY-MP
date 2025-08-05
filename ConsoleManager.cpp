@@ -5,13 +5,13 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
-#define byte win_byte_override // added
+#define byte win_byte_override //added
 #include <windows.h>
 #include "Colors.h"
 #include <fstream>
 #include <thread>
 #include <algorithm> //added
-#undef byte          // added
+#undef byte //added
 using namespace std;
 
 void clearScreen()
@@ -19,29 +19,26 @@ void clearScreen()
     system("cls");
 }
 
-std::string getCurrentTimeFormatted()
-{
+std::string getCurrentTimeFormatted() {
     std::time_t now = std::time(0);
     std::tm localTime;
 
 #ifdef _WIN32
     // Windows: use localtime_s
-    if (localtime_s(&localTime, &now) != 0)
-    {
+    if (localtime_s(&localTime, &now) != 0) {
         return "Error getting local time";
     }
 #else
     // Unix/Linux: use localtime_r
-    if (localtime_r(&now, &localTime) == nullptr)
-    {
+    if (localtime_r(&now, &localTime) == nullptr) {
         return "Error getting local time";
     }
 #endif
 
     // Extract date and time components
-    int month = localTime.tm_mon + 1; // tm_mon is 0-based
+    int month = localTime.tm_mon + 1;  // tm_mon is 0-based
     int day = localTime.tm_mday;
-    int year = localTime.tm_year + 1900; // tm_year is years since 1900
+    int year = localTime.tm_year + 1900;  // tm_year is years since 1900
 
     int hour = localTime.tm_hour;
     int minute = localTime.tm_min;
@@ -49,12 +46,10 @@ std::string getCurrentTimeFormatted()
 
     // Convert to 12-hour format
     std::string ampm = (hour >= 12) ? "PM" : "AM";
-    if (hour == 0)
-    {
+    if (hour == 0) {
         hour = 12;
     }
-    else if (hour > 12)
-    {
+    else if (hour > 12) {
         hour -= 12;
     }
 
@@ -71,44 +66,34 @@ std::string getCurrentTimeFormatted()
     return oss.str();
 }
 
-ConsoleManager::ConsoleManager() : pm(numCpu)
-{
+ConsoleManager::ConsoleManager() : pm(numCpu) {
     std::thread Scheduler;
     std::thread dummyMaker;
 }
 
-void ConsoleManager::run()
-{
+void ConsoleManager::run() {
     InputHandler = std::thread(&ConsoleManager::inputLoop, this);
 }
 
-void ConsoleManager::inputLoop()
-{
+void ConsoleManager::inputLoop() {
     printHeader();
     std::string input;
-    while (!stopInput)
-    {
+    while (!stopInput) {
         std::getline(std::cin, input);
-        if (!handleCommand(input))
-            break;
+        if (!handleCommand(input)) break;
     }
 }
 
-ConsoleManager::~ConsoleManager()
-{
-    if (InputHandler.joinable())
-        InputHandler.join();
-    if (Scheduler.joinable())
-        Scheduler.join();
+ConsoleManager::~ConsoleManager() {
+    if (InputHandler.joinable()) InputHandler.join();
+    if (Scheduler.joinable()) Scheduler.join();
 }
 
-bool ConsoleManager::isInSession()
-{
+bool ConsoleManager::isInSession() {
     return inSession;
 }
 
-void ConsoleManager::printHeader()
-{
+void ConsoleManager::printHeader() {
     std::cout << R"(
      ______  __ __    ___       ____   ___    ____  ______   _____      ___    _____
     |      ||  |  |  /  _]     /    | /   \  /    ||      | / ___/     /   \  / ___/
@@ -124,8 +109,7 @@ void ConsoleManager::printHeader()
     cout << "Enter a command: ";
 }
 
-void ConsoleManager::initialize()
-{
+void ConsoleManager::initialize() {
     configReader = new ConfigReader();
     initialized = true;
 
@@ -142,73 +126,59 @@ void ConsoleManager::initialize()
     memPerFrame = configReader->getMemPerFrame();
     minMemPerProcess = configReader->getMinMemPerProcess();
     maxMemPerProcess = configReader->getMaxMemPerProcess();
-    size_t max_pages_for_process = static_cast<size_t>(maxMemPerProcess) / static_cast<size_t>(memPerFrame);
 
-    memoryAllocator = std::make_shared<FlatMemoryAllocator>(
-        static_cast<size_t>(maxOverallMem),
-        static_cast<size_t>(memPerFrame),
-        max_pages_for_process); // Declare memory allocator here after getting max overall memory
+    int maxPages = maxOverallMem / memPerFrame;
+
+    memoryAllocator = std::make_shared<FlatMemoryAllocator>(static_cast<size_t>(maxOverallMem), static_cast<size_t>(memPerFrame), static_cast<size_t>(maxPages));
+   // Declare memory allocator here after getting max overall memory
 }
 
-void readConfig()
-{
+void readConfig() {
+
 }
 
-bool ConsoleManager::handleCommand(const string &input)
-{
+bool ConsoleManager::handleCommand(const string& input) {
 
-    if (inSession)
-    {
-        if (input == "process-smi")
-        {
-            if (activeProcess)
-            {
-                cout << "\n"
-                     << endl;
+    if (inSession) {
+        if (input == "process-smi") {
+            if (activeProcess) {
+                cout << "\n" << endl;
                 cout << "Process Name: " << activeProcess->getProcessName() << endl;
                 cout << "ID: " << activeProcess->getProcessId() << endl;
                 cout << "Logs: " << endl;
-                for (const auto &log : activeProcess->getLogs())
-                {
+                for (const auto& log : activeProcess->getLogs()) {
                     cout << log << endl;
                 }
-                cout << "\n"
-                     << endl;
+                cout << "\n" << endl;
                 cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
                 cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
 
-                if (activeProcess->getStatus() == FINISHED)
-                {
+                if (activeProcess->getStatus() == FINISHED) {
                     cout << "\nStatus: Finished!" << endl;
                 }
             }
-            else
-            {
+            else {
                 cout << RED << "No process is currently active in session." << RESET << endl;
             }
         }
-        else if (input == "exit")
-        {
+        else if (input == "exit") {
             cout << "> Exiting session..." << endl;
             inSession = false;
             activeProcess = nullptr;
             system("cls");
             printHeader();
         }
-        else
-        {
+        else {
             cout << "> Unknown command in session. Try 'process-smi' or 'exit'." << endl;
         }
-        if (inSession)
+        if(inSession)
             cout << "\nEnter a command: ";
         return true;
     }
 
     // If NOT in a session
-    else if (!inSession)
-    {
-        if (!initialized)
-        {
+    else if (!inSession) {
+        if (!initialized) {
             if (input == "initialize")
             {
                 // cout << "'Initialize' command recognized. Doing something.";
@@ -216,74 +186,59 @@ bool ConsoleManager::handleCommand(const string &input)
                 cout << "Emulator initialized successfully." << endl;
                 cout << "\nEnter a command: ";
             }
-            else if (input == "exit")
-            {
+            else if (input == "exit") {
                 cout << "'exit' command recognized. Exiting program.\n";
-                if (Scheduler.joinable())
-                    Scheduler.join();
+                if (Scheduler.joinable()) Scheduler.join();
                 stopInput = true;
                 return false;
             }
-            else
-            {
+            else {
                 cout << RED << "> Error: Emulator not initialized. Please run 'initialize' command first." << RESET << endl;
                 cout << "\nEnter a command: ";
             }
         }
-        else
-        {
-            if (input.substr(0, 9) == "screen -r")
-            {
+        else {
+            if (input.substr(0, 9) == "screen -r") {
 
-                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos)
-                {
+                if (input.length() <= 10 || input.substr(10).find_first_not_of(' ') == string::npos) {
                     // if no "process" name
                     // clearScreen();
                     cout << RED << "> Error: Missing process name for 'screen -r' command." << RESET << endl;
                 }
-                else
-                {
+                else {
                     string processName = input.substr(10);
                     auto all = pm.getAllProcesses();
                     bool found = false;
 
-                    for (const auto &proc : all)
-                    {
-                        if (proc->getProcessName() == processName)
-                        {
+                    for (const auto& proc : all) {
+                        if (proc->getProcessName() == processName) {
                             activeProcess = proc;
                             found = true;
                             break;
                         }
                     }
 
-                    if (!found)
-                    {
+                    if (!found) {
                         cout << RED << "Process " << processName << " not found." << RESET << endl;
                     }
-                    // else if (activeProcess->getStatus() == FINISHED) {
-                    //     cout << RED << "Process " << processName << " has already finished." << RESET << endl;
-                    // }
-                    else
-                    {
+                    //else if (activeProcess->getStatus() == FINISHED) {
+                    //    cout << RED << "Process " << processName << " has already finished." << RESET << endl;
+                    //}
+                    else {
                         clearScreen();
                         cout << YELLOW << "Attached to process: " << processName << RESET << endl;
-                        cout << "\n"
-                             << endl;
+                        cout << "\n" << endl;
                         cout << "Process Name: " << activeProcess->getProcessName() << endl;
                         cout << "ID: " << activeProcess->getProcessId() << endl;
                         cout << "Logs: " << endl;
-                        for (const auto &log : activeProcess->getLogs())
-                        {
+                        for (const auto& log : activeProcess->getLogs()) {
                             cout << log << endl;
                         }
-                        cout << "\n"
-                             << endl;
+                        cout << "\n" << endl;
                         cout << "Current Instruction Line: " << activeProcess->getCommandIndex() << endl;
                         cout << "Total Instructions: " << activeProcess->getTotalCommands() << endl;
 
-                        if (activeProcess->getStatus() == FINISHED)
-                        {
+                        if (activeProcess->getStatus() == FINISHED) {
                             cout << "\nStatus: Finished!" << endl;
                         }
                         inSession = true;
@@ -292,14 +247,11 @@ bool ConsoleManager::handleCommand(const string &input)
 
                 cout << "\nEnter a command: ";
             }
-            else if (input.substr(0, 9) == "screen -s")
-            {
-                if (std::count(input.begin(), input.end(), ' ') < 3)
-                {
+            else if (input.substr(0, 9) == "screen -s") {
+                if (std::count(input.begin(), input.end(), ' ') < 3) {
                     cout << RED << "> Error: Missing arguements for 'screen -s' command." << RESET << endl;
                 }
-                else
-                {
+                else {
                     std::istringstream iss(input.substr(10));
                     std::string processName, memSizeStr;
                     size_t memSize = 0;
@@ -310,12 +262,10 @@ bool ConsoleManager::handleCommand(const string &input)
                     // Parse memory size
                     iss >> memSizeStr;
 
-                    try
-                    {
+                    try {
                         memSize = std::stoul(memSizeStr);
                     }
-                    catch (...)
-                    {
+                    catch (...) {
                         cout << RED << "> Error: Invalid memory size for 'screen -c' command." << RESET << endl;
                     }
 
@@ -325,20 +275,17 @@ bool ConsoleManager::handleCommand(const string &input)
                 cout << "\nEnter a command: ";
             }
 
-            else if (input.substr(0, 9) == "screen -c")
-            {
+            else if (input.substr(0, 9) == "screen -c") {
 
-                if (std::count(input.begin(), input.end(), ' ') < 4)
-                {
+                if (std::count(input.begin(), input.end(), ' ') < 4) {
                     cout << RED << "> Error: Missing arguements for 'screen -c' command." << RESET << endl;
                     cout << "\nEnter a command: ";
                 }
-                else
-                {
-                    /*
-                     * test commands : screen -c test1 256 "PRINT(\"Hello World!\")"
-                     *                 screen -c test2 256 "DECLARE varA 10; DECLARE varB 5; ADD varA varA varB; WRITE 0x500 varA; READ varC 0x500; PRINT(\"Result: \" + varC)"
-                     */
+                else {
+                    /* 
+                    * test commands : screen -c test1 4096 "PRINT(\"Hello World!\")"
+                    *                 screen -c test2 4096 "DECLARE varA 10; DECLARE varB 5; ADD varA varA varB; WRITE 0x500 varA; READ varC 0x500; PRINT(\"Result: \" + varC)"
+                    */
                     std::istringstream iss(input.substr(10));
                     std::string processName, memSizeStr, instructionsBlock;
                     size_t memSize = 0;
@@ -349,12 +296,10 @@ bool ConsoleManager::handleCommand(const string &input)
                     // Parse memory size
                     iss >> memSizeStr;
 
-                    try
-                    {
+                    try {
                         memSize = std::stoul(memSizeStr);
                     }
-                    catch (...)
-                    {
+                    catch (...) {
                         cout << RED << "> Error: Invalid memory size for 'screen -c' command." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
@@ -362,36 +307,28 @@ bool ConsoleManager::handleCommand(const string &input)
                     // Parse quoted instructions, handling escaped quotes
                     char ch;
                     // Skip until first quote
-                    while (iss.get(ch))
-                    {
-                        if (ch == '"')
-                            break;
+                    while (iss.get(ch)) {
+                        if (ch == '"') break;
                     }
                     bool inEscape = false;
                     bool inQuotes = true;
                     instructionsBlock.clear();
-                    while (inQuotes && iss.get(ch))
-                    {
-                        if (inEscape)
-                        {
+                    while (inQuotes && iss.get(ch)) {
+                        if (inEscape) {
                             instructionsBlock += ch;
                             inEscape = false;
                         }
-                        else if (ch == '\\')
-                        {
+                        else if (ch == '\\') {
                             inEscape = true;
                         }
-                        else if (ch == '"')
-                        {
+                        else if (ch == '"') {
                             inQuotes = false;
                         }
-                        else
-                        {
+                        else {
                             instructionsBlock += ch;
                         }
                     }
-                    if (instructionsBlock.empty())
-                    {
+                    if (instructionsBlock.empty()) {
                         cout << RED << "> Error: Missing or invalid instructions for 'screen -c' command. Enclose instructions in double quotes." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
@@ -400,21 +337,15 @@ bool ConsoleManager::handleCommand(const string &input)
                     std::vector<std::string> instructions;
                     std::istringstream instrStream(instructionsBlock);
                     std::string instr;
-                    while (std::getline(instrStream, instr, ';'))
-                    {
+                    while (std::getline(instrStream, instr, ';')) {
                         // Trim leading/trailing spaces
-                        instr.erase(instr.begin(), std::find_if(instr.begin(), instr.end(), [](int ch)
-                                                                { return !std::isspace(ch); }));
-                        instr.erase(std::find_if(instr.rbegin(), instr.rend(), [](int ch)
-                                                 { return !std::isspace(ch); })
-                                        .base(),
-                                    instr.end());
+                        instr.erase(instr.begin(), std::find_if(instr.begin(), instr.end(), [](int ch) { return !std::isspace(ch); }));
+                        instr.erase(std::find_if(instr.rbegin(), instr.rend(), [](int ch) { return !std::isspace(ch); }).base(), instr.end());
                         if (!instr.empty())
                             instructions.push_back(instr);
                     }
 
-                    if (instructions.empty())
-                    {
+                    if (instructions.empty()) {
                         cout << RED << "> Error: No valid instructions found for 'screen -c' command." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
@@ -422,9 +353,9 @@ bool ConsoleManager::handleCommand(const string &input)
                         cout << RED << "> Error: Instructions too long. Maximum size is 50." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
-
-                    // create proc
-                    pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions);
+                    else {
+                        // create proc
+                        pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions, maxMemPerProcess);
 
                         cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
                         cout << YELLOW << "Instructions:" << RESET << endl;
@@ -433,44 +364,40 @@ bool ConsoleManager::handleCommand(const string &input)
                         }
                         cout << "\nEnter a command: ";
                     }
-                
+                }
             }
-            else if (input == "process-smi")
-            {
-                pm.processSMI(memoryAllocator, maxOverallMem);
+            else if (input == "process-smi") {
+				pm.processSMI(memoryAllocator, maxOverallMem);
                 cout << "\nEnter a command: ";
             }
-            else if (input == "vmstat")
-            {
-                pm.vmstat(memoryAllocator, maxOverallMem);
+            else if (input == "vmstat") {
+				pm.vmstat(memoryAllocator, maxOverallMem);
                 cout << "\nEnter a command: ";
             }
             else if (input == "scheduler-stop")
             {
                 pm.stopDummy();
-                if (dummyMaker.joinable())
-                    dummyMaker.join();
+                if (dummyMaker.joinable()) dummyMaker.join();
                 cout << "\nEnter a command: ";
             }
             else if (input == "scheduler-start")
             {
                 // Create dummy processes
-                if (dummyMaker.joinable())
-                    dummyMaker.join();
+                if (dummyMaker.joinable()) dummyMaker.join();
                 dummyMaker = std::thread(&ProcessManager::makeDummies, &pm, cpuTick, MinIns, MaxIns, BPF, static_cast<size_t>(maxMemPerProcess));
-                if (Scheduler.joinable())
-                    Scheduler.join();
-
+                if (Scheduler.joinable()) Scheduler.join();
+                    
                 if (configReader->getSchedulerType() == 0)
                 {
                     // std::cout << "Executing FCFS" << std::endl;
                     Scheduler = std::thread(&ProcessManager::executeFCFS, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec, memoryAllocator);
                 }
-                else
+                else 
                 {
                     // std::cout << "Executing RR" << std::endl;
                     Scheduler = std::thread(&ProcessManager::executeRR, &pm, numCpu, cpuTick, quantumCycle, DelayPerExec, memoryAllocator);
                 }
+              
 
                 cout << "\nEnter a command: ";
             }
@@ -491,13 +418,11 @@ bool ConsoleManager::handleCommand(const string &input)
                 exit(0);
                 pm.stopDummy();
                 pm.cancelAll();
-                if (dummyMaker.joinable())
-                    dummyMaker.join();
-                if (Scheduler.joinable())
-                    Scheduler.join();
+                if (dummyMaker.joinable()) dummyMaker.join();
+                if (Scheduler.joinable()) Scheduler.join();
                 stopInput = true;
-                if (InputHandler.joinable())
-                    InputHandler.join();
+                if (InputHandler.joinable()) InputHandler.join();
+              
 
                 return false;
             }
@@ -513,11 +438,11 @@ bool ConsoleManager::handleCommand(const string &input)
                 cout << "\nEnter a command: ";
             }
         }
+
     }
 
-    else
-    {
+    else {
         cout << "> You are currently viewing a process. Use 'exit' to return." << endl;
     }
-    return true; // added
+    return true; //added
 }
