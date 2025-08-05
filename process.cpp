@@ -235,8 +235,8 @@ void Process::execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
             timeStr + ". " + e.what();
 
         // Print the formatted error message to the console
-        std::cout << RED << errorMessage << RESET << std::endl;
-        std::cout << "Enter a command: " << std::endl;
+        std::cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b" << RED << errorMessage << RESET << std::endl;
+        std::cout << "\nEnter a command: ";
         // Add the error to the process's internal logs as well
         logs.push_back(errorMessage);
 
