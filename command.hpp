@@ -9,6 +9,7 @@
 #include <vector>
 #include "memory.hpp"
 #include <regex>
+#include <utility>
 using namespace GlobalSymbols;
 
 enum CommandType
@@ -34,88 +35,75 @@ public:
 
 class PrintCommand : public Command
 {
-    std::string message;
+public:
+    // This enum will distinguish between literal strings and variable names
+    enum class PrintPartType { LITERAL, VARIABLE };
+
+    // This struct will hold each part of the print statement
+    struct PrintPart {
+        PrintPartType type;
+        std::string data;
+    };
+
+private:
+    std::vector<PrintPart> parts;
 
 public:
-    PrintCommand(const std::string &msg)
-        : Command(PRINT), message(msg)
-    {
+    // The constructor is now simpler
+    PrintCommand() : Command(PRINT) {}
+
+    // A new method for the parser to add parts
+    void addPart(PrintPartType type, std::string data) {
+        parts.push_back({type, data});
     }
 
-    std::string insertSmartSpaces(const std::string &input)
+    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator) override
     {
-        std::string result;
-        const std::string keywords[] = {"from", "process"};
+        std::ostringstream oss; // Use a string stream to build the final output
 
-        for (size_t i = 0; i < input.size(); ++i)
+        for (const auto& part : parts)
         {
-            for (const std::string &kw : keywords)
+            if (part.type == PrintPartType::LITERAL)
             {
-                if (input.substr(i, kw.size()) == kw && i > 0 && std::isalpha(input[i - 1]))
-                {
-                    result += ' ';
-                    break;
-                }
+                // If it's a literal, just append it
+                oss << part.data;
             }
-
-            char curr = input[i];
-
-            if (i > 0)
+            else if (part.type == PrintPartType::VARIABLE)
             {
-                char prev = input[i - 1];
-                if (std::islower(prev) && std::isupper(curr))
+                // If it's a variable, look up its value in memory
+                std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
+                uint16_t val = 0; // Default to 0 if not found
+
+                if (GlobalSymbols::symbolTable.count(part.data))
                 {
-                    result += ' ';
+                    uint32_t varAddr = GlobalSymbols::symbolTable.at(part.data);
+                    val = memoryAllocator->readValueFromVirtualAddress(pid, varAddr);
                 }
-                else if ((std::isalpha(prev) && std::isdigit(curr)) ||
-                         (std::isdigit(prev) && std::isalpha(curr)))
-                {
-                    result += ' ';
-                }
+                oss << val;
             }
-
-            result += curr;
-        }
-
-        return result;
-    }
-
-    void printExecute(std::string timestamp, int coreIndex, std::vector<std::string> *logList, int pid, std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
-    {
-        std::string output;
-        const std::string prefix = "Valuefrom:";
-
-        if (message.rfind(prefix, 0) == 0)
-        {
-            std::string varName = message.substr(prefix.length());
-            varName.erase(0, varName.find_first_not_of(" \t"));
-
-            std::lock_guard<std::recursive_mutex> lock(GlobalSymbols::symbolTableMutex);
-            uint16_t val = 0; // Default value if not found
-
-            if (GlobalSymbols::symbolTable.count(varName))
-            {
-                // 1. Get address from symbol table
-                uint32_t varAddr = GlobalSymbols::symbolTable.at(varName);
-                // 2. Read value from that address in memory (this can trigger demand paging)
-                val = memoryAllocator->readValueFromVirtualAddress(pid, varAddr);
-            }
-
-            output = "Value from: " + varName + " = " + std::to_string(val);
-        }
-        else
-        {
-            output = insertSmartSpaces(message);
         }
 
         std::string coreIndexStr = std::to_string(coreIndex);
-        std::string log = "(" + timestamp + ")" + " " + "Core:" + coreIndexStr + " " + "\"" + output + "\"";
+        std::string log = "(" + timestamp + ")" + " " + "Core:" + coreIndexStr + " " + "\"" + oss.str() + "\"";
         logList->push_back(log);
     }
 
     std::string toString() const override
     {
-        return "PRINT \"" + message + "\"";
+        // Reconstruct a string representation for logging/debugging
+        std::string result = "PRINT(";
+        for (size_t i = 0; i < parts.size(); ++i) {
+            if (parts[i].type == PrintCommand::PrintPartType::LITERAL) {
+                result += "\"" + parts[i].data + "\"";
+            } else {
+                result += parts[i].data;
+            }
+            if (i < parts.size() - 1) {
+                result += " + ";
+            }
+        }
+        result += ")";
+        return result;
     }
 
     static std::string randomCommand()

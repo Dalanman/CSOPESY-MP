@@ -25,8 +25,7 @@ public:
 class FlatMemoryAllocator : public IMemoryAllocator
 {
 public:
-    // --- CORRECTED CONSTRUCTOR IMPLEMENTATION ---
-    // The definition is now inside the class header.
+    // FIX: Constructor definition is now complete and self-contained in the header.
     FlatMemoryAllocator(size_t maximumSize, size_t pageSize, size_t maxPages)
         : maxSize(maximumSize),
           pageSize(pageSize),
@@ -34,8 +33,7 @@ public:
           memory(maximumSize, '.'),
           allocationMap(maximumSize, false)
     {
-        // This loop is the critical part that was missing.
-        // It populates the freeFrames list with all available frames at the start.
+        // This loop correctly populates the freeFrames list at the start.
         for (size_t i = 0; i < maximumSize; i += pageSize)
         {
             freeFrames.push_back(i);
@@ -73,6 +71,7 @@ public:
             {
                 if (page.inMemory)
                 {
+                    // FIX: Return the frame to the free list AND remove it from the loaded queue.
                     freeFrames.push_back(page.startIndex);
                     auto &queue = loadedFramesQueue;
                     queue.erase(std::remove(queue.begin(), queue.end(), page.startIndex), queue.end());
@@ -99,6 +98,7 @@ public:
     void allocateDemandPaged(size_t size, int processId)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
+        // FIX: Removed the incorrect 'if (numPages > maxPagesPerProcess)' check.
         size_t numPages = (size + pageSize - 1) / pageSize;
         ProcessInfo procInfo;
         procInfo.totalPages = numPages;
@@ -185,6 +185,7 @@ public:
             markPageAllocated(index, pageSize);
         }
 
+        // FIX: This is now called correctly for all cases, ensuring the queue is consistent.
         loadedFramesQueue.push_back(index);
         page.startIndex = index;
         page.inMemory = true;

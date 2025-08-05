@@ -7,13 +7,12 @@
 #include "commandList.hpp"
 #include "memory.hpp"
 
-Process::Process(const std::string &name, int id, int assignedCore, int totalInstructions, size_t maxMemPerProcess)
+Process::Process(const std::string &name, int id, int assignedCore, size_t maxMemPerProcess)
     : processName(name),
       processId(id),
       coreIndex(assignedCore),
-      numCommands(totalInstructions),
-      commandList(totalInstructions),
-      memoryRequirement(maxMemPerProcess) // Add this
+      // 'commandList' is now default-constructed.
+      memoryRequirement(maxMemPerProcess)
 {
 }
 

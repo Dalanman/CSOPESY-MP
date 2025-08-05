@@ -26,7 +26,7 @@ class Process
 {
 public:
     // Constructor
-    Process(const std::string &name, int id, int assignedCore, int totalInstructions, size_t maxMemPerProcess);
+    Process(const std::string &name, int id, int assignedCore, size_t maxMemPerProcess);
 
     // Public methods
     // void displayDetails() const;

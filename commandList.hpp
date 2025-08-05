@@ -18,7 +18,7 @@
 class CommandList
 {
 public:
-CommandList();
+CommandList() = default;
 CommandList(int total);
 void executeCommand(int index);
 void addCommand(std::string line);
@@ -31,10 +31,7 @@ std::shared_ptr<Command> agetCommand(int index){
     return commands[index];
 }
 int getTotalCommands() {
-    return totalCommands;
-}
-void setTotalCommands(int value) {
-    totalCommands = value;
+    return commands.size();
 }
 
 std::shared_ptr<Command> getCommand(int j) {
@@ -43,7 +40,6 @@ std::shared_ptr<Command> getCommand(int j) {
 
 private:
 std::vector<std::shared_ptr<Command>> commands;
-int totalCommands;
 };
 
 #endif
