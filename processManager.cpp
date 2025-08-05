@@ -278,8 +278,8 @@ void ProcessManager::UpdateProcessScreen()
             std::cout << p->getProcessName() << "\t"
                       << p->getArrivalTimestamp() << "\t"
                       << "Finished\t"
-                      << p->getNumCommands() << "/"
-                      << p->getNumCommands() << std::endl;
+                      << p->getActualCommands() << "/"
+                      << p->getActualCommands() << std::endl;
         }
     }
 }
@@ -332,10 +332,12 @@ void ProcessManager::processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAlloc
     for (const auto& p : process)
     {
         //|| p->getStatus() == 1 || p->getStatus() == 0
-        if (p->getStatus() == 2)
+        
+        if (p->getStatus() == 2 && memoryAllocator->isProcessInMemory(p->getProcessId()))
         {
             std::cout << p->getProcessName() << "\t"
-                << p->getMemoryRequirement() << std::endl;
+                << p->getMemoryRequirement() << "\t" 
+                << memoryAllocator->isProcessInMemory(p->getProcessId()) << std::endl;
         }
     }
 

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include "commandList.hpp"
 #include "memory.hpp"
+#include "Colors.h"
 
 Process::Process(const std::string &name, int id, int assignedCore, size_t maxMemPerProcess)
     : processName(name),
@@ -112,6 +113,16 @@ void Process::setRunTimeStamp()
     runTimeStamp = oss2.str();
 }
 
+std::string getTimestampForError() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t timeNow = std::chrono::system_clock::to_time_t(now);
+    std::tm timeInfo;
+    localtime_s(&timeInfo, &timeNow);
+    std::ostringstream oss;
+    oss << std::put_time(&timeInfo, "%T"); // %T is the standard HH:MM:SS format
+    return oss.str();
+}
+
 void Process::execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
 {
     // Initialize on first run
@@ -139,79 +150,99 @@ void Process::execute(std::shared_ptr<FlatMemoryAllocator> memoryAllocator)
         setStatus(FINISHED);
         return;
     }
-
-    std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
-
-    // Handle FOR unrolling safely
-    if (currentCommand->type == FOR)
+    try 
     {
-        auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
-        if (forCmd)
+        std::shared_ptr<Command> currentCommand = commandList.getCommand(commandIndex);
+
+        // Handle FOR unrolling safely
+        if (currentCommand->type == FOR)
         {
-            auto expanded = forCmd->unrollBody();
-            commandList.removeCommandAt(commandIndex);
-            commandList.insertCommandsAt(commandIndex, expanded);
-            // Don't return early � let the loop fall through to execute next instruction
-            if (commandIndex >= commandList.getTotalCommands())
+            auto forCmd = std::dynamic_pointer_cast<ForCommand>(currentCommand);
+            if (forCmd)
             {
-                setRunTimeStamp();
-                setStatus(FINISHED);
-                return;
+                auto expanded = forCmd->unrollBody();
+                commandList.removeCommandAt(commandIndex);
+                commandList.insertCommandsAt(commandIndex, expanded);
+                // Don't return early � let the loop fall through to execute next instruction
+                if (commandIndex >= commandList.getTotalCommands())
+                {
+                    setRunTimeStamp();
+                    setStatus(FINISHED);
+                    return;
+                }
+                currentCommand = commandList.getCommand(commandIndex); // refresh pointer
             }
-            currentCommand = commandList.getCommand(commandIndex); // refresh pointer
         }
-    }
 
-    setRunTimeStamp();
+        setRunTimeStamp();
 
-    if (currentCommand->type == PRINT)
-    {
-        std::ostringstream oss;
-        std::string cmdStr = currentCommand->toString();
-        std::string printParam;
-        size_t firstQuote = cmdStr.find('\"');
-        size_t lastQuote = cmdStr.rfind('\"');
-        if (firstQuote != std::string::npos && lastQuote != std::string::npos && lastQuote > firstQuote)
+        if (currentCommand->type == PRINT)
         {
-            printParam = cmdStr.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+            std::ostringstream oss;
+            std::string cmdStr = currentCommand->toString();
+            std::string printParam;
+            size_t firstQuote = cmdStr.find('\"');
+            size_t lastQuote = cmdStr.rfind('\"');
+            if (firstQuote != std::string::npos && lastQuote != std::string::npos && lastQuote > firstQuote)
+            {
+                printParam = cmdStr.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+            }
+            else
+            {
+                printParam = cmdStr;
+            }
+            oss << "(" << getRunTimestamp() << ") "
+                << "Core: " << coreIndex << " "
+                << printParam;
+            smiLogs.push_back(oss.str());
         }
-        else
-        {
-            printParam = cmdStr;
-        }
-        oss << "(" << getRunTimestamp() << ") "
-            << "Core: " << coreIndex << " "
-            << printParam;
-        smiLogs.push_back(oss.str());
-    }
 
-    switch (currentCommand->type)
-    {
-    case PRINT:
-        currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs, processId, memoryAllocator);
-        commandIndex++;
-        break;
-
-    case IO:
-    {
-        auto ioCmd = std::dynamic_pointer_cast<IOCommand>(currentCommand);
-        if (ioCmd && ioCmd->getOperation() == "SLEEP")
+        switch (currentCommand->type)
         {
-            sleepRemainingTicks = ioCmd->getSleepTicks();
+        case PRINT:
+            currentCommand->printExecute(getRunTimestamp(), coreIndex, &logs, processId, memoryAllocator);
             commandIndex++;
-        }
-        else
-        {
-            // Pass in this process's PID and the allocator
-            ioCmd->IOExecute(this->processId, memoryAllocator);
-            commandIndex++;
-        }
-        break;
-    }
+            break;
 
-    default:
-        commandIndex++;
-        break;
+        case IO:
+        {
+            auto ioCmd = std::dynamic_pointer_cast<IOCommand>(currentCommand);
+            if (ioCmd && ioCmd->getOperation() == "SLEEP")
+            {
+                sleepRemainingTicks = ioCmd->getSleepTicks();
+                commandIndex++;
+            }
+            else
+            {
+                // Pass in this process's PID and the allocator
+                ioCmd->IOExecute(this->processId, memoryAllocator);
+                commandIndex++;
+            }
+            break;
+        }
+
+        default:
+            commandIndex++;
+            break;
+        }
+    }
+    catch (const std::out_of_range& e)
+    {
+        // --- THIS BLOCK CATCHES THE SEGMENTATION FAULT ---
+        std::string timeStr = getTimestampForError();
+        std::string errorMessage = "Process " + this->processName +
+            " shut down due to memory access violation error that occurred at " +
+            timeStr + ". " + e.what();
+
+        // Print the formatted error message to the console
+        std::cout << RED << errorMessage << RESET << std::endl;
+        std::cout << "Enter a command: " << std::endl;
+        // Add the error to the process's internal logs as well
+        logs.push_back(errorMessage);
+
+        // "Prematurely shut down" the process
+        setStatus(FINISHED);
+        return; // Stop execution
     }
 
     if (commandIndex >= commandList.getTotalCommands())

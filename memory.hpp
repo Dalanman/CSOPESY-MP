@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <mutex>
 #include <cstdint>
+#include <sstream>
 
 class IMemoryAllocator
 {
@@ -67,19 +68,17 @@ public:
         auto it = processAllocations.find(processId);
         if (it != processAllocations.end())
         {
-            for (const auto &page : it->second.pages)
+            for (const auto& page : it->second.pages)
             {
                 if (page.inMemory)
                 {
-                    // FIX: Return the frame to the free list AND remove it from the loaded queue.
                     freeFrames.push_back(page.startIndex);
-                    auto &queue = loadedFramesQueue;
+                    auto& queue = loadedFramesQueue;
                     queue.erase(std::remove(queue.begin(), queue.end(), page.startIndex), queue.end());
 
                     for (size_t i = page.startIndex; i < page.startIndex + pageSize; ++i)
                     {
-                        if (i < memory.size())
-                        {
+                        if (i < memory.size()) {
                             memory[i] = '.';
                             allocationMap[i] = false;
                         }
@@ -90,6 +89,7 @@ public:
         }
     }
 
+
     std::string visualizeMemory() override
     {
         return std::string(memory.begin(), memory.end());
@@ -98,29 +98,51 @@ public:
     void allocateDemandPaged(size_t size, int processId)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
-        // FIX: Removed the incorrect 'if (numPages > maxPagesPerProcess)' check.
         size_t numPages = (size + pageSize - 1) / pageSize;
         ProcessInfo procInfo;
         procInfo.totalPages = numPages;
         for (size_t page = 0; page < numPages; ++page)
         {
-            procInfo.pages.push_back({SIZE_MAX, false});
+            procInfo.pages.push_back({ SIZE_MAX, false });
         }
         processAllocations[processId] = procInfo;
     }
+
 
     bool hasAllocation(int processId) const
     {
         return processAllocations.find(processId) != processAllocations.end();
     }
 
-    char *accessPage(int processId, size_t pageIndex)
+    bool isProcessInMemory(int pid)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
-        ensurePageIsLoaded(processId, pageIndex);
-        PageInfo &page = processAllocations.at(processId).pages.at(pageIndex);
+        auto it = processAllocations.find(pid);
+        if (it != processAllocations.end())
+        {
+            for (const auto& page : it->second.pages)
+            {
+                if (page.inMemory)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    char* accessPage(int processId, size_t pageIndex)
+    {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
+
+        // FIX: Calculate the starting address of the page and pass it as the third argument.
+        uint32_t startOfPageAddress = pageIndex * pageSize;
+        ensurePageIsLoaded(processId, pageIndex, startOfPageAddress);
+
+        PageInfo& page = processAllocations.at(processId).pages.at(pageIndex);
         return &memory[page.startIndex];
     }
+
 
     uint32_t allocateVariable(int pid, size_t varSize)
     {
@@ -153,22 +175,21 @@ public:
         return value;
     }
 
-    void ensurePageIsLoaded(int pid, size_t virtualPageNumber)
+    void ensurePageIsLoaded(int pid, size_t virtualPageNumber, uint32_t virtualAddr)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
         auto it = processAllocations.find(pid);
         if (it == processAllocations.end())
             throw std::runtime_error("Invalid process ID in ensurePageIsLoaded: " + std::to_string(pid));
 
-        while (virtualPageNumber >= it->second.pages.size())
+        if (virtualPageNumber >= it->second.pages.size())
         {
-            it->second.pages.push_back({SIZE_MAX, false});
-            it->second.totalPages++;
+            // The error message now includes the specific invalid address
+            throw std::out_of_range(to_hex(virtualAddr) + " invalid.");
         }
 
-        PageInfo &page = it->second.pages.at(virtualPageNumber);
-        if (page.inMemory)
-            return;
+        PageInfo& page = it->second.pages.at(virtualPageNumber);
+        if (page.inMemory) return;
 
         size_t index = findFreePage();
         if (index == SIZE_MAX)
@@ -185,11 +206,16 @@ public:
             markPageAllocated(index, pageSize);
         }
 
-        // FIX: This is now called correctly for all cases, ensuring the queue is consistent.
         loadedFramesQueue.push_back(index);
         page.startIndex = index;
         page.inMemory = true;
         totalPagesPagedIn++;
+    }
+
+    static std::string to_hex(uint32_t n) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << std::uppercase << n;
+        return ss.str();
     }
 
     size_t getTotalFreeMemory() const
@@ -234,30 +260,33 @@ private:
     size_t totalPagesPagedOut = 0;
     std::vector<size_t> loadedFramesQueue;
 
-    void writeToHexAddress(int pid, uint32_t virtualAddr, char value)
-    {
-        std::lock_guard<std::recursive_mutex> lock(memMutex);
-        size_t pageNumber = virtualAddr / pageSize;
-        size_t offset = virtualAddr % pageSize;
-        ensurePageIsLoaded(pid, pageNumber);
-        PageInfo &page = processAllocations.at(pid).pages.at(pageNumber);
-        size_t physicalAddr = page.startIndex + offset;
-        if (physicalAddr < memory.size())
-        {
-            memory[physicalAddr] = value;
-        }
-    }
+
+    // These two functions must be updated to pass the virtualAddr to ensurePageIsLoaded
     char readFromHexAddress(int pid, uint32_t virtualAddr)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
         size_t pageNumber = virtualAddr / pageSize;
         size_t offset = virtualAddr % pageSize;
-        ensurePageIsLoaded(pid, pageNumber);
-        PageInfo &page = processAllocations.at(pid).pages.at(pageNumber);
+        ensurePageIsLoaded(pid, pageNumber, virtualAddr); // Pass the address
+        PageInfo& page = processAllocations.at(pid).pages.at(pageNumber);
         size_t physicalAddr = page.startIndex + offset;
         if (physicalAddr >= memory.size())
             throw std::out_of_range("Physical address out of bounds");
         return memory[physicalAddr];
+    }
+
+    void writeToHexAddress(int pid, uint32_t virtualAddr, char value)
+    {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
+        size_t pageNumber = virtualAddr / pageSize;
+        size_t offset = virtualAddr % pageSize;
+        ensurePageIsLoaded(pid, pageNumber, virtualAddr); // Pass the address
+        PageInfo& page = processAllocations.at(pid).pages.at(pageNumber);
+        size_t physicalAddr = page.startIndex + offset;
+        if (physicalAddr < memory.size())
+        {
+            memory[physicalAddr] = value;
+        }
     }
 
     bool findAndLoadFromBackstore(int processId, size_t pageIndex, char *destination)
@@ -284,20 +313,42 @@ private:
 
     void swapOutToBackstore(int processId, size_t pageIndex)
     {
-        auto &proc = processAllocations[processId];
+        // --- START OF FINAL FIX ---
+        // Use an iterator to find the process info. This is the most robust way
+        // to get a modifiable reference to the object inside the map.
+        auto it = processAllocations.find(processId);
+        if (it == processAllocations.end()) {
+            // This should not happen if the system state is consistent, but it's a good safeguard.
+            return;
+        }
+        // Get a reference to the ProcessInfo directly from the iterator.
+        ProcessInfo& proc = it->second;
+        // --- END OF FINAL FIX ---
+
         if (pageIndex >= proc.pages.size() || !proc.pages[pageIndex].inMemory)
             return;
+
         std::ofstream outFile("csopesy-backing-store.txt", std::ios::app);
         size_t start = proc.pages[pageIndex].startIndex;
         outFile << "P" << processId << "_page" << pageIndex << " ";
         for (size_t i = start; i < start + pageSize; ++i)
         {
-            outFile << memory[i];
-            memory[i] = '.';
-            allocationMap[i] = false;
+            if (i < memory.size()) outFile << memory[i];
         }
         outFile << "\n";
+
+        // This line will now correctly and permanently modify the state of the original object.
         proc.pages[pageIndex].inMemory = false;
+
+        // We must clear the memory contents of the evicted frame
+        for (size_t i = start; i < start + pageSize; ++i)
+        {
+            if (i < memory.size()) {
+                memory[i] = '.';
+                allocationMap[i] = false;
+            }
+        }
+
         totalPagesPagedOut++;
         freeFrames.push_back(start);
     }
@@ -326,10 +377,10 @@ private:
         size_t victimFrameIndex = loadedFramesQueue.front();
         loadedFramesQueue.erase(loadedFramesQueue.begin());
         bool found = false;
-        for (auto &proc_pair : processAllocations)
+        for (auto& proc_pair : processAllocations)
         {
             int pid = proc_pair.first;
-            auto &proc_info = proc_pair.second;
+            auto& proc_info = proc_pair.second;
             for (size_t i = 0; i < proc_info.pages.size(); ++i)
             {
                 if (proc_info.pages[i].inMemory && proc_info.pages[i].startIndex == victimFrameIndex)
@@ -339,13 +390,10 @@ private:
                     break;
                 }
             }
-            if (found)
-                break;
+            if (found) break;
         }
-        if (!found)
-        {
-            // This case can happen if a process was deallocated without cleaning the queue.
-            // We can just return the frame index, as it's effectively free now.
+        if (!found) {
+            throw std::runtime_error("CRITICAL: evictPage could not find the owner of a frame from the queue. State is inconsistent.");
         }
         return victimFrameIndex;
     }

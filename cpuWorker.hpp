@@ -48,7 +48,7 @@ private:
     std::atomic<bool> isBusy = false;
     std::atomic<WorkerState> state = WorkerState::IDLE;
 
-    int activeTick;
-    int idleTick;
-    int totalTick;
+    int activeTick = 0;
+    int idleTick = 0;
+    int totalTick = 0;
 };

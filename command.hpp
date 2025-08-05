@@ -231,8 +231,8 @@ public:
             "ADD(z, x, y)",
             "SUBTRACT(diff, x, 20)",
             "SLEEP(5)",
-            "READ(x, 0x1A3F)",
-            "WRITE(0x1A3F, y)"};
+            "READ(x, 0x001)",
+            "WRITE(0x001, y)"};
         return samples[rand() % samples.size()];
     }
 
