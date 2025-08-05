@@ -27,7 +27,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     numLines = rand() % (maxIns - minIns + 1) + minIns;
     // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
-    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, 4096);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, 4096);
     addProcess(proc);
 
     for (int j = 0; j < numLines; j++)
@@ -80,7 +80,7 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
             else
                 name = "process" + std::to_string(pid_counter);
 
-            auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, maxMemPerProcess);
+            auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, maxMemPerProcess);
             addProcess(proc);
 
             for (int j = 0; j < numLines; j++)
@@ -118,7 +118,7 @@ void ProcessManager::makeCustomDummy(std::string name, int cpuTick, int minIns, 
 {
     int assignedCore = -1;
 
-    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, commands.size(), maxMemPerProcess);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, maxMemPerProcess);
     addProcess(proc);
     // Add custom commands
     for (const auto &cmd : commands)
@@ -141,7 +141,7 @@ void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int min
     // Generate random number of instructions
     numLines = rand() % (maxIns - minIns + 1) + minIns;
 
-    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, 4096);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, 4096);
     addProcess(proc);
 
     // Always start with DECLARE(x, 0)
@@ -189,7 +189,7 @@ void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BP
             else
                 name = "process" + std::to_string(i);
 
-            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
+            auto proc = std::make_shared<Process>(name, i, assignedCore, 4096);
 
             // Always start with DECLARE(x, 0)
             proc->addCommand("DECLARE(x, 0)");

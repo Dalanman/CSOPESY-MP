@@ -19,7 +19,6 @@ class CommandList
 {
 public:
 CommandList() = default;
-CommandList(int total);
 void executeCommand(int index);
 void addCommand(std::string line);
 void removeCommandAt(int index);

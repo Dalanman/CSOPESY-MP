@@ -1,9 +1,5 @@
 #include "commandList.hpp"
 
-CommandList::CommandList()
-{
-}
-
 void CommandList::removeCommandAt(int index)
 {
     if (index >= 0 && index < commands.size())
@@ -24,102 +20,118 @@ void CommandList::addCommand(std::string line)
 }
 
 // Helper function to split nested command strings properly
-std::vector<std::string> splitNestedCommands(const std::string &input)
+std::string trim(const std::string& str)
+{
+    size_t start = str.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos)
+        return ""; // string contains only whitespace
+    size_t end = str.find_last_not_of(" \t\r\n");
+    return str.substr(start, end - start + 1);
+}
+
+
+
+std::vector<std::string> splitNestedCommands(const std::string& input)
 {
     std::vector<std::string> result;
     std::string current;
     int parenDepth = 0;
 
-    for (size_t i = 0; i < input.size(); ++i)
+    for (char c : input)
     {
-        char c = input[i];
+        // Split on comma only if we are not inside parentheses or brackets
+        if (parenDepth == 0 && c == ',')
+        {
+            result.push_back(trim(current));
+            current.clear();
+            continue;
+        }
+
         current += c;
 
-        if (c == '(')
+        if (c == '(' || c == '[')
         {
             parenDepth++;
         }
-        else if (c == ')')
+        else if (c == ')' || c == ']')
         {
             parenDepth--;
         }
-
-        if (parenDepth == 0 && (i + 1 == input.size() || input[i + 1] == ','))
-        {
-            result.push_back(current);
-            current.clear();
-            if (i + 1 < input.size() && input[i + 1] == ',')
-                i++; // skip the comma
-        }
+    }
+    // Add the last command to the list
+    if (!current.empty()) {
+        result.push_back(trim(current));
     }
 
     return result;
-}
-
-std::string trim(const std::string &str)
-{
-    size_t start = str.find_first_not_of(" \t\r\n");
-    size_t end = str.find_last_not_of(" \t\r\n");
-
-    if (start == std::string::npos)
-        return ""; // string is all spaces
-    return str.substr(start, end - start + 1);
 }
 
 bool CommandList::parseCommands(std::vector<std::string> inputCommands)
 {
     for (std::string line : inputCommands)
     {
-        // For PRINT, we need to preserve spaces inside the parentheses
         std::string trimmedLine = trim(line);
+        if (trimmedLine.empty()) continue;
+
+        // 1. Handle the special case for PRINT, which can contain spaces and concatenation
         if (trimmedLine.rfind("PRINT(", 0) == 0 && trimmedLine.back() == ')')
         {
             size_t start = trimmedLine.find('(');
             size_t end = trimmedLine.rfind(')');
-            if (start == std::string::npos || end == std::string::npos || start >= end)
-                return false;
+            if (start == std::string::npos || end == std::string::npos || start >= end) return false;
 
             std::string content = trimmedLine.substr(start + 1, end - start - 1);
-
             auto printCmd = std::make_shared<PrintCommand>();
 
-            // Split the content by the '+' character
             std::stringstream ss(content);
             std::string segment;
             while (std::getline(ss, segment, '+'))
             {
                 std::string partStr = trim(segment);
-                if (partStr.front() == '"' && partStr.back() == '"')
-                {
-                    // It's a literal string
-                    std::string literal = partStr.substr(1, partStr.length() - 2);
-                    printCmd->addPart(PrintCommand::PrintPartType::LITERAL, literal);
-                }
-                else if (partStr.rfind("Valuefrom:", 0) == 0)
-                {
-                    // Support the old format for backward compatibility
-                    std::string varName = partStr.substr(10);
-                    printCmd->addPart(PrintCommand::PrintPartType::VARIABLE, trim(varName));
-                }
-                else
-                {
-                    // It's a variable name
-                    printCmd->addPart(PrintCommand::PrintPartType::VARIABLE, partStr);
+                if (!partStr.empty()) {
+                    if (partStr.front() == '"' && partStr.back() == '"') {
+                        printCmd->addPart(PrintCommand::PrintPartType::LITERAL, partStr.substr(1, partStr.length() - 2));
+                    }
+                    else if (partStr.rfind("Valuefrom:", 0) == 0) {
+                        printCmd->addPart(PrintCommand::PrintPartType::VARIABLE, trim(partStr.substr(10)));
+                    }
+                    else {
+                        printCmd->addPart(PrintCommand::PrintPartType::VARIABLE, partStr);
+                    }
                 }
             }
             commands.push_back(printCmd);
-            continue; // Continue to the next line
+            continue; // Go to the next command string
         }
-        // For all other commands, remove spaces to simplify parsing
+
+        // 2. Canonicalizer: Convert space-separated commands into the COMMAND(...) format
+        if (trimmedLine.find('(') == std::string::npos) {
+            size_t first_space = trimmedLine.find(' ');
+            if (first_space != std::string::npos) {
+                std::string op = trimmedLine.substr(0, first_space);
+                std::string args = trim(trimmedLine.substr(first_space + 1));
+
+                std::replace(args.begin(), args.end(), ' ', ',');
+
+                line = op + "(" + args + ")";
+            }
+            else {
+                line = trimmedLine + "()";
+            }
+        }
+        else {
+            line = trimmedLine;
+        }
+
+        // 3. Clean the newly formatted string by removing any remaining spaces
         line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
 
+        // 4. Parse the now-canonical command string
         if (line.find("DECLARE(") == 0 && line.back() == ')')
         {
             std::string args = line.substr(8, line.size() - 9);
             size_t comma = args.find(',');
-            if (comma == std::string::npos)
-                return false;
-
+            if (comma == std::string::npos) return false;
             std::string var = args.substr(0, comma);
             std::string val = args.substr(comma + 1);
             commands.push_back(std::make_shared<IOCommand>("DECLARE", var, "", "", std::stoi(val)));
@@ -128,15 +140,11 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
         {
             std::string op = line.substr(0, line.find('('));
             std::string args = line.substr(op.size() + 1, line.size() - op.size() - 2);
-
             std::vector<std::string> parts;
             std::stringstream ss(args);
             std::string part;
-            while (std::getline(ss, part, ','))
-                parts.push_back(part);
-            if (parts.size() != 3)
-                return false;
-
+            while (std::getline(ss, part, ',')) parts.push_back(part);
+            if (parts.size() != 3) return false;
             commands.push_back(std::make_shared<IOCommand>(op, parts[0], parts[1], parts[2]));
         }
         else if (line.find("SLEEP(") == 0 && line.back() == ')')
@@ -144,27 +152,30 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
             std::string ticks = line.substr(6, line.size() - 7);
             commands.push_back(std::make_shared<IOCommand>("SLEEP", ticks));
         }
+        else if ((line.find("READ(") == 0 || line.find("WRITE(") == 0) && line.back() == ')')
+        {
+            std::string op = line.substr(0, line.find('('));
+            std::string args = line.substr(op.size() + 1, line.size() - op.size() - 2);
+            size_t comma = args.find(',');
+            if (comma == std::string::npos) return false;
+            std::string arg1 = args.substr(0, comma);
+            std::string arg2 = args.substr(comma + 1);
+            commands.push_back(std::make_shared<IOCommand>(op, arg1, arg2));
+        }
         else if (line.find("FOR([") == 0 && line.back() == ')')
         {
-            size_t bodyStart = line.find("[") + 1;
-            size_t bodyEnd = line.rfind("]");
-            size_t commaAfterBody = line.find(",", bodyEnd);
-
-            if (bodyStart == std::string::npos || bodyEnd == std::string::npos || commaAfterBody == std::string::npos)
-                return false;
+            size_t bodyStart = line.find('[') + 1;
+            size_t bodyEnd = line.rfind(']');
+            size_t commaAfterBody = line.find(',', bodyEnd);
+            if (bodyStart == std::string::npos || bodyEnd == std::string::npos || commaAfterBody == std::string::npos) return false;
 
             std::string bodyStr = line.substr(bodyStart, bodyEnd - bodyStart);
             std::string repeatStr = line.substr(commaAfterBody + 1, line.size() - commaAfterBody - 2);
             int repeatCount = std::stoi(repeatStr);
-
             std::vector<std::string> nestedCommands = splitNestedCommands(bodyStr);
 
             CommandList tempList;
-            if (!tempList.parseCommands(nestedCommands))
-                return false;
-
-            // FIX: The lines that manually managed 'totalCommands' are now removed.
-            // The command count is now handled automatically by the vector's size.
+            if (!tempList.parseCommands(nestedCommands)) return false;
 
             for (int i = 0; i < repeatCount; ++i)
             {
@@ -174,24 +185,9 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
                 }
             }
         }
-        else if ((line.find("READ(") == 0 || line.find("WRITE(") == 0) && line.back() == ')')
-        {
-            std::string op = line.substr(0, line.find('('));
-            std::string args = line.substr(op.size() + 1, line.size() - op.size() - 2);
-
-            size_t comma = args.find(',');
-            if (comma == std::string::npos)
-                return false;
-
-            std::string arg1 = args.substr(0, comma);
-            std::string arg2 = args.substr(comma + 1);
-
-            // FIX: This now works correctly for both READ(var, addr) and WRITE(addr, var)
-            commands.push_back(std::make_shared<IOCommand>(op, arg1, arg2));
-        }
         else
         {
-            // Invalid command
+            // If command is still not recognized, it's an error.
             return false;
         }
     }
