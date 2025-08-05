@@ -313,7 +313,9 @@ void ProcessManager::processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAlloc
     int utilization = (100 * (busy + delayed)) / cores;
 
     int usedMemory = maxMemory - memoryAllocator->getTotalFreeMemory();
-	int memoryUtilization = (usedMemory / maxMemory) * 100; 
+    double util = (double)usedMemory / (double)maxMemory;
+	double memoryUtilization = 100 * util; 
+	int display = (int)memoryUtilization;
 
     int used = busy + delayed;
     available = idle;
@@ -324,7 +326,7 @@ void ProcessManager::processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAlloc
     cout << " " << endl;
     std::cout << "CPU utilization: " << utilization << "%" << std::endl;
     std::cout << "Memory usage: " << usedMemory << "MiB / " << maxMemory << "MiB" << std::endl;
-    std::cout << "Memory utilization: " << memoryUtilization << "%" << std::endl;
+    std::cout << "Memory utilization: " << display << "%" << std::endl;
     std::cout << " " << std::endl;
 
     std::cout << "=============================================" << std::endl;
