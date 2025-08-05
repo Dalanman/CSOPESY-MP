@@ -418,8 +418,6 @@ bool ConsoleManager::handleCommand(const string &input)
                         cout << RED << "> Error: No valid instructions found for 'screen -c' command." << RESET << endl;
                         cout << "\nEnter a command: ";
                     }
-                    if (instructions.size() > 50)
-                    {
                     else if (instructions.size() > 50) {
                         cout << RED << "> Error: Instructions too long. Maximum size is 50." << RESET << endl;
                         cout << "\nEnter a command: ";
@@ -435,14 +433,7 @@ bool ConsoleManager::handleCommand(const string &input)
                         }
                         cout << "\nEnter a command: ";
                     }
-                    cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
-                    cout << YELLOW << "Instructions:" << RESET << endl;
-                    for (size_t i = 0; i < instructions.size(); ++i)
-                    {
-                        cout << (i + 1) << ": " << instructions[i] << endl;
-                    }
-                    cout << "\nEnter a command: ";
-                }
+                
             }
             else if (input == "process-smi")
             {
