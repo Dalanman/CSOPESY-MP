@@ -20,7 +20,6 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     int numLines = 0;
     // std::string name;
     int assignedCore = -1;
-    int i = 0;
     int counterForBPF = 0;
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr))); // std::cout << BPF << "         " << counterForBPF << "      Created 1 process at " << i << std::endl;
@@ -28,7 +27,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
     numLines = rand() % (maxIns - minIns + 1) + minIns;
     // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, 4096);
     addProcess(proc);
 
     for (int j = 0; j < numLines; j++)
@@ -54,7 +53,7 @@ void ProcessManager::makeDummy(std::string name, int cpuTick, int minIns, int ma
 
     proc->parse();
     addToReadyQueue(proc.get());
-    i++;
+    pid_counter++;
 }
 
 void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, size_t maxMemPerProcess)
@@ -62,7 +61,6 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
     int numLines = 0;
     std::string name;
     int assignedCore = -1;
-    int i = 0;
     int counterForBPF = 0;
     // Seed the random number generator
     srand(static_cast<unsigned int>(time(nullptr)));
@@ -77,12 +75,12 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
             numLines = rand() % (maxIns - minIns + 1) + minIns;
             // std::cout << numLines << "   " << minIns << "       " << maxIns << std::endl;
 
-            if (i < 10)
-                name = "process0" + std::to_string(i);
+            if (pid_counter < 10)
+                name = "process0" + std::to_string(pid_counter);
             else
-                name = "process" + std::to_string(i);
+                name = "process" + std::to_string(pid_counter);
 
-            auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, maxMemPerProcess);
+            auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, maxMemPerProcess);
             addProcess(proc);
 
             for (int j = 0; j < numLines; j++)
@@ -108,7 +106,7 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
 
             proc->parse();
             addToReadyQueue(proc.get());
-            i++;
+            pid_counter++;
         }
 
         counterForBPF++;
@@ -119,33 +117,31 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
 void ProcessManager::makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> commands, size_t maxMemPerProcess)
 {
     int assignedCore = -1;
-    int i = 0;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, commands.size(), maxMemPerProcess);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, commands.size(), maxMemPerProcess);
     addProcess(proc);
     // Add custom commands
     for (const auto &cmd : commands)
     {
         proc->addCommand(cmd);
-		cout << cmd << endl; // Debugging output to see commands being added
     }
 
     proc->parse();
     addToReadyQueue(proc.get());
+    pid_counter++;
 }
 
 void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF)
 {
     int numLines = 0;
     int assignedCore = -1;
-    int i = 0;
 
     srand(static_cast<unsigned int>(time(nullptr)));
 
     // Generate random number of instructions
     numLines = rand() % (maxIns - minIns + 1) + minIns;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, numLines, 4096);
+    auto proc = std::make_shared<Process>(name, pid_counter, assignedCore, numLines, 4096);
     addProcess(proc);
 
     // Always start with DECLARE(x, 0)
@@ -169,6 +165,7 @@ void ProcessManager::makeAlternatingDummy(std::string name, int cpuTick, int min
 
     proc->parse();
     addToReadyQueue(proc.get());
+    pid_counter++;
 }
 
 void ProcessManager::alternatingCase(int cpuTick, int minIns, int maxIns, int BPF)

@@ -37,13 +37,17 @@ public:
     int getAvailableCores();
     void makeAlternatingDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF);
     void alternatingCase(int cpuTick, int minIns, int maxIns, int BPF);
-	void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions, size_t maxMemPerProcess);
+	// void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions, size_t maxMemPerProcess);
+    // Add this method declaration to the ProcessManager class in processManager.hpp
+
+    void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> commands, size_t maxMemPerProcess);
     
     void vmstat(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);
     void processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);
 
 private:
     int cores;
+	int pid_counter = 0;  
     std::vector<std::shared_ptr<Process>> process;  // Created processes
     std::vector<std::unique_ptr<CPUWorker>> workers;
     std::vector<std::thread> threads;
