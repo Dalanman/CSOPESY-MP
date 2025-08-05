@@ -16,6 +16,7 @@
 class IMemoryAllocator
 {
 public:
+    virtual ~IMemoryAllocator() = default;
     virtual void *allocate(size_t size, int processId) = 0;
     virtual void deallocate(int processId) = 0;
     virtual std::string visualizeMemory() = 0;
@@ -24,19 +25,26 @@ public:
 class FlatMemoryAllocator : public IMemoryAllocator
 {
 public:
-    FlatMemoryAllocator(size_t maximumSize, size_t pageSize, size_t maxPages);
-
-    void setMaxMemorySize(int maximumSize)
+    // --- CORRECTED CONSTRUCTOR IMPLEMENTATION ---
+    // The definition is now inside the class header.
+    FlatMemoryAllocator(size_t maximumSize, size_t pageSize, size_t maxPages)
+        : maxSize(maximumSize),
+          pageSize(pageSize),
+          maxPagesPerProcess(maxPages),
+          memory(maximumSize, '.'),
+          allocationMap(maximumSize, false)
     {
-        maxSize = maximumSize;
+        // This loop is the critical part that was missing.
+        // It populates the freeFrames list with all available frames at the start.
+        for (size_t i = 0; i < maximumSize; i += pageSize)
+        {
+            freeFrames.push_back(i);
+        }
     }
 
     void *allocate(size_t size, int processId) override
     {
         size_t numPages = (size + pageSize - 1) / pageSize;
-        if (numPages > maxPagesPerProcess)
-            numPages = maxPagesPerProcess;
-
         ProcessInfo procInfo;
         procInfo.totalPages = numPages;
 
@@ -51,13 +59,13 @@ public:
             markPageAllocated(index, pageSize);
             procInfo.pages.push_back({index, true});
         }
-
         processAllocations[processId] = procInfo;
         return &memory[processAllocations[processId].pages[0].startIndex];
     }
 
     void deallocate(int processId) override
     {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
         auto it = processAllocations.find(processId);
         if (it != processAllocations.end())
         {
@@ -65,26 +73,22 @@ public:
             {
                 if (page.inMemory)
                 {
-                    // Return the frame to the free list
                     freeFrames.push_back(page.startIndex);
-
-                    // --- NEW and CRITICAL ---
-                    // Remove the deallocated frame from the FIFO queue
                     auto &queue = loadedFramesQueue;
                     queue.erase(std::remove(queue.begin(), queue.end(), page.startIndex), queue.end());
-                    // -------------------------
 
-                    // Clear the actual memory
                     for (size_t i = page.startIndex; i < page.startIndex + pageSize; ++i)
                     {
-                        memory[i] = '.';
-                        allocationMap[i] = false;
+                        if (i < memory.size())
+                        {
+                            memory[i] = '.';
+                            allocationMap[i] = false;
+                        }
                     }
                 }
             }
             processAllocations.erase(it);
         }
-        // As discussed, we no longer remove the backing store file here.
     }
 
     std::string visualizeMemory() override
@@ -94,16 +98,14 @@ public:
 
     void allocateDemandPaged(size_t size, int processId)
     {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
         size_t numPages = (size + pageSize - 1) / pageSize;
-
         ProcessInfo procInfo;
         procInfo.totalPages = numPages;
-
         for (size_t page = 0; page < numPages; ++page)
         {
             procInfo.pages.push_back({SIZE_MAX, false});
         }
-
         processAllocations[processId] = procInfo;
     }
 
@@ -111,123 +113,49 @@ public:
     {
         return processAllocations.find(processId) != processAllocations.end();
     }
+
     char *accessPage(int processId, size_t pageIndex)
     {
-        // To ensure thread safety, we should lock the mutex for this operation.
         std::lock_guard<std::recursive_mutex> lock(memMutex);
-
-        // 1. Call our main function to handle all the complex logic.
-        //    This function will handle the page fault, load from disk,
-        //    or call evictPage() if necessary.
         ensurePageIsLoaded(processId, pageIndex);
-
-        // 2. After ensurePageIsLoaded returns, the page is GUARANTEED to be in memory.
-        //    We can now safely get its physical address.
-        //    Using .at() is safe here because ensurePageIsLoaded would have already
-        //    thrown an error if the process or page was invalid.
         PageInfo &page = processAllocations.at(processId).pages.at(pageIndex);
-
-        // 3. Return the pointer to the start of the page's physical frame.
         return &memory[page.startIndex];
     }
 
-    // NEW: Function to allocate virtual address space for a variable
     uint32_t allocateVariable(int pid, size_t varSize)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
         auto it = processAllocations.find(pid);
         if (it == processAllocations.end())
         {
-            // If process info doesn't exist, create it.
-            allocateDemandPaged(0, pid); // Allocate with 0 pages initially
+            allocateDemandPaged(0, pid);
             it = processAllocations.find(pid);
         }
-
         uint32_t allocatedAddress = it->second.nextVirtualAddress;
-        it->second.nextVirtualAddress += varSize; // Increment heap pointer
+        it->second.nextVirtualAddress += varSize;
         return allocatedAddress;
     }
 
-    // NEW: Function to write a 16-bit value to a virtual address
     void writeValueAtVirtualAddress(int pid, uint32_t virtualAddr, uint16_t value)
     {
-        // Writes a 2-byte value, little-endian
-        char byte1 = value & 0xFF;        // Low byte
-        char byte2 = (value >> 8) & 0xFF; // High byte
-
+        char byte1 = value & 0xFF;
+        char byte2 = (value >> 8) & 0xFF;
         writeToHexAddress(pid, virtualAddr, byte1);
         writeToHexAddress(pid, virtualAddr + 1, byte2);
     }
 
-    // NEW: Function to read a 16-bit value from a virtual address
     uint16_t readValueFromVirtualAddress(int pid, uint32_t virtualAddr)
     {
-        // Reads a 2-byte value, little-endian
         char byte1 = readFromHexAddress(pid, virtualAddr);
         char byte2 = readFromHexAddress(pid, virtualAddr + 1);
-
-        // Combine bytes back into a uint16_t
         uint16_t value = static_cast<uint16_t>(static_cast<unsigned char>(byte1)) |
                          (static_cast<uint16_t>(static_cast<unsigned char>(byte2)) << 8);
         return value;
     }
 
-    // MODIFIED: Overloaded to accept uint32_t for virtual address.
-    char readFromHexAddress(int pid, uint32_t virtualAddr)
-    {
-        std::lock_guard<std::recursive_mutex> lock(memMutex);
-
-        size_t pageNumber = virtualAddr / pageSize;
-        size_t offset = virtualAddr % pageSize;
-
-        ensurePageIsLoaded(pid, pageNumber);
-
-        auto &proc = processAllocations.at(pid);
-        PageInfo &page = proc.pages.at(pageNumber);
-        size_t physicalAddr = page.startIndex + offset;
-
-        if (physicalAddr >= memory.size())
-            throw std::out_of_range("Physical address out of bounds");
-
-        return memory[physicalAddr];
-    }
-
-    // MODIFIED: Overloaded to accept uint32_t for virtual address.
-    void writeToHexAddress(int pid, uint32_t virtualAddr, char value)
-    {
-        std::lock_guard<std::recursive_mutex> lock(memMutex);
-
-        size_t pageNumber = virtualAddr / pageSize;
-        size_t offset = virtualAddr % pageSize;
-
-        ensurePageIsLoaded(pid, pageNumber);
-
-        auto &proc = processAllocations.at(pid);
-        PageInfo &page = proc.pages.at(pageNumber);
-        size_t physicalAddr = page.startIndex + offset;
-
-        if (physicalAddr >= memory.size())
-            throw std::out_of_range("Physical address out of bounds");
-
-        memory[physicalAddr] = value;
-    }
-
-    // Kept for compatibility but recommend using the uint32_t versions directly.
-    char readFromHexAddress(int pid, const std::string &hexAddr)
-    {
-        size_t virtualAddr = std::stoul(hexAddr, nullptr, 16);
-        return readFromHexAddress(pid, (uint32_t)virtualAddr);
-    }
-    void writeToHexAddress(int pid, const std::string &hexAddr, char value)
-    {
-        size_t virtualAddr = std::stoul(hexAddr, nullptr, 16);
-        writeToHexAddress(pid, (uint32_t)virtualAddr, value);
-    }
-
     void ensurePageIsLoaded(int pid, size_t virtualPageNumber)
     {
         std::lock_guard<std::recursive_mutex> lock(memMutex);
-
         auto it = processAllocations.find(pid);
         if (it == processAllocations.end())
             throw std::runtime_error("Invalid process ID in ensurePageIsLoaded: " + std::to_string(pid));
@@ -238,32 +166,26 @@ public:
             it->second.totalPages++;
         }
 
-        PageInfo &page = processAllocations.at(pid).pages.at(virtualPageNumber);
-
+        PageInfo &page = it->second.pages.at(virtualPageNumber);
         if (page.inMemory)
             return;
 
-        // 1. Acquire a frame. It could be free or from an evicted page.
         size_t index = findFreePage();
         if (index == SIZE_MAX)
         {
             index = evictPage();
         }
 
-        // 2. Load data into the frame if it exists on disk.
         if (findAndLoadFromBackstore(pid, virtualPageNumber, &memory[index]))
         {
-            // If loaded from disk, just update the allocation map.
             std::fill(allocationMap.begin() + index, allocationMap.begin() + index + pageSize, true);
         }
         else
         {
-            // If it's a new page, mark it with your placeholder.
             markPageAllocated(index, pageSize);
         }
 
-        // 3. CRITICAL: Update the queue and page table for ALL cases.
-        loadedFramesQueue.push_back(index); // This MUST be here.
+        loadedFramesQueue.push_back(index);
         page.startIndex = index;
         page.inMemory = true;
         totalPagesPagedIn++;
@@ -284,53 +206,6 @@ public:
         return totalPagesPagedOut;
     }
 
-    void swapOutToBackstore(int processId, size_t pageIndex)
-    {
-        auto &proc = processAllocations[processId];
-        if (pageIndex >= proc.pages.size() || !proc.pages[pageIndex].inMemory)
-            return;
-
-        std::ofstream outFile("csopesy-backing-store.txt", std::ios::app);
-        size_t start = proc.pages[pageIndex].startIndex;
-        outFile << "P" << processId << "_page" << pageIndex << " ";
-        for (size_t i = start; i < start + pageSize; ++i)
-        {
-            outFile << memory[i];
-            memory[i] = '.';
-            allocationMap[i] = false;
-        }
-        outFile << "\n";
-
-        proc.pages[pageIndex].inMemory = false;
-        totalPagesPagedOut++;
-        freeFrames.push_back(start);
-    }
-
-    bool findAndLoadFromBackstore(int processId, size_t pageIndex, char *destination)
-    {
-        std::ifstream inFile("csopesy-backing-store.txt");
-        if (!inFile)
-            return false;
-
-        std::string line;
-        std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
-
-        while (std::getline(inFile, line))
-        {
-            if (line.rfind(targetPrefix, 0) == 0)
-            {
-                std::string content = line.substr(targetPrefix.length());
-                // Copy the content into the destination frame
-                for (size_t i = 0; i < pageSize && i < content.size(); ++i)
-                {
-                    destination[i] = content[i];
-                }
-                return true; // Found and loaded!
-            }
-        }
-        return false; // Did not find it.
-    }
-
     size_t getPageSize() const { return pageSize; }
 
 private:
@@ -339,12 +214,10 @@ private:
         size_t startIndex;
         bool inMemory;
     };
-
     struct ProcessInfo
     {
         std::vector<PageInfo> pages;
         size_t totalPages;
-        // NEW: "Heap" pointer for the process's virtual address space, tracking next available address.
         uint32_t nextVirtualAddress = 0;
     };
 
@@ -359,6 +232,75 @@ private:
     size_t totalPagesPagedIn = 0;
     size_t totalPagesPagedOut = 0;
     std::vector<size_t> loadedFramesQueue;
+
+    void writeToHexAddress(int pid, uint32_t virtualAddr, char value)
+    {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
+        size_t pageNumber = virtualAddr / pageSize;
+        size_t offset = virtualAddr % pageSize;
+        ensurePageIsLoaded(pid, pageNumber);
+        PageInfo &page = processAllocations.at(pid).pages.at(pageNumber);
+        size_t physicalAddr = page.startIndex + offset;
+        if (physicalAddr < memory.size())
+        {
+            memory[physicalAddr] = value;
+        }
+    }
+    char readFromHexAddress(int pid, uint32_t virtualAddr)
+    {
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
+        size_t pageNumber = virtualAddr / pageSize;
+        size_t offset = virtualAddr % pageSize;
+        ensurePageIsLoaded(pid, pageNumber);
+        PageInfo &page = processAllocations.at(pid).pages.at(pageNumber);
+        size_t physicalAddr = page.startIndex + offset;
+        if (physicalAddr >= memory.size())
+            throw std::out_of_range("Physical address out of bounds");
+        return memory[physicalAddr];
+    }
+
+    bool findAndLoadFromBackstore(int processId, size_t pageIndex, char *destination)
+    {
+        std::ifstream inFile("csopesy-backing-store.txt");
+        if (!inFile)
+            return false;
+        std::string line;
+        std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
+        while (std::getline(inFile, line))
+        {
+            if (line.rfind(targetPrefix, 0) == 0)
+            {
+                std::string content = line.substr(targetPrefix.length());
+                for (size_t i = 0; i < pageSize && i < content.size(); ++i)
+                {
+                    destination[i] = content[i];
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void swapOutToBackstore(int processId, size_t pageIndex)
+    {
+        auto &proc = processAllocations[processId];
+        if (pageIndex >= proc.pages.size() || !proc.pages[pageIndex].inMemory)
+            return;
+        std::ofstream outFile("csopesy-backing-store.txt", std::ios::app);
+        size_t start = proc.pages[pageIndex].startIndex;
+        outFile << "P" << processId << "_page" << pageIndex << " ";
+        for (size_t i = start; i < start + pageSize; ++i)
+        {
+            outFile << memory[i];
+            memory[i] = '.';
+            allocationMap[i] = false;
+        }
+        outFile << "\n";
+        proc.pages[pageIndex].inMemory = false;
+        totalPagesPagedOut++;
+        freeFrames.push_back(start);
+    }
+
     size_t findFreePage()
     {
         if (freeFrames.empty())
@@ -371,17 +313,17 @@ private:
     void markPageAllocated(size_t index, size_t size)
     {
         std::fill(allocationMap.begin() + index, allocationMap.begin() + index + size, true);
-        std::fill(memory.begin() + index, memory.begin() + index + size, '#'); // Fill with a placeholder
+        std::fill(memory.begin() + index, memory.begin() + index + size, '#');
     }
 
     size_t evictPage()
     {
-
-        // 1. Select the victim frame (the first one that was loaded)
+        if (loadedFramesQueue.empty())
+        {
+            throw std::runtime_error("CRITICAL: Eviction called but no frames are loaded. State is inconsistent.");
+        }
         size_t victimFrameIndex = loadedFramesQueue.front();
         loadedFramesQueue.erase(loadedFramesQueue.begin());
-
-        // 2. Find which process and page corresponds to this victim frame
         bool found = false;
         for (auto &proc_pair : processAllocations)
         {
@@ -391,8 +333,7 @@ private:
             {
                 if (proc_info.pages[i].inMemory && proc_info.pages[i].startIndex == victimFrameIndex)
                 {
-                    // 3. Swap the victim page out to the backing store
-                    swapOutToBackstore(pid, i); // This also marks the page as not in memory
+                    swapOutToBackstore(pid, i);
                     found = true;
                     break;
                 }
@@ -400,8 +341,11 @@ private:
             if (found)
                 break;
         }
-
-        // 4. Return the now-free frame index
+        if (!found)
+        {
+            // This case can happen if a process was deallocated without cleaning the queue.
+            // We can just return the frame index, as it's effectively free now.
+        }
         return victimFrameIndex;
     }
 };
