@@ -170,16 +170,8 @@ bool CommandList::parseCommands(std::vector<std::string> inputCommands)
             std::string arg1 = args.substr(0, comma);
             std::string arg2 = args.substr(comma + 1);
 
-            if (op == "READ")
-            {
-                // READ(varName, address)
-                commands.push_back(std::make_shared<IOCommand>(op, arg1, arg2));
-            }
-            else
-            {
-                // WRITE(address, varName)
-                commands.push_back(std::make_shared<IOCommand>(op, arg2, arg1)); // flip order
-            }
+
+            commands.push_back(std::make_shared<IOCommand>(op, arg1, arg2));
         }
 
         else
