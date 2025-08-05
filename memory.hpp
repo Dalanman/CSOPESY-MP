@@ -24,18 +24,7 @@ public:
 class FlatMemoryAllocator : public IMemoryAllocator
 {
 public:
-    FlatMemoryAllocator(size_t maximumSize, size_t pageSize = 4096, size_t maxPages = 4)
-        : maxSize(maximumSize),
-          pageSize(pageSize),
-          maxPagesPerProcess(maxPages),
-          memory(maximumSize, '.'),
-          allocationMap(maximumSize, false)
-    {
-        for (size_t i = 0; i <= maxSize - pageSize; i += pageSize)
-        {
-            freeFrames.push_back(i);
-        }
-    }
+    FlatMemoryAllocator(size_t maximumSize, size_t pageSize, size_t maxPages);
 
     void setMaxMemorySize(int maximumSize)
     {
@@ -96,8 +85,6 @@ public:
     void allocateDemandPaged(size_t size, int processId)
     {
         size_t numPages = (size + pageSize - 1) / pageSize;
-        if (numPages > maxPagesPerProcess)
-            numPages = maxPagesPerProcess;
 
         ProcessInfo procInfo;
         procInfo.totalPages = numPages;
@@ -116,30 +103,21 @@ public:
     }
     char *accessPage(int processId, size_t pageIndex)
     {
-        auto it = processAllocations.find(processId);
-        if (it == processAllocations.end())
-            return nullptr;
+        // To ensure thread safety, we should lock the mutex for this operation.
+        std::lock_guard<std::recursive_mutex> lock(memMutex);
 
-        ProcessInfo &proc = it->second;
-        if (pageIndex >= proc.pages.size())
-            return nullptr;
+        // 1. Call our main function to handle all the complex logic.
+        //    This function will handle the page fault, load from disk,
+        //    or call evictPage() if necessary.
+        ensurePageIsLoaded(processId, pageIndex);
 
-        PageInfo &page = proc.pages[pageIndex];
+        // 2. After ensurePageIsLoaded returns, the page is GUARANTEED to be in memory.
+        //    We can now safely get its physical address.
+        //    Using .at() is safe here because ensurePageIsLoaded would have already
+        //    thrown an error if the process or page was invalid.
+        PageInfo &page = processAllocations.at(processId).pages.at(pageIndex);
 
-        if (!page.inMemory)
-        {
-            if (!swapInFromBackstore(processId, pageIndex))
-            {
-                size_t index = findFreePage();
-                if (index == SIZE_MAX)
-                    return nullptr;
-
-                markPageAllocated(index, pageSize);
-                page.startIndex = index;
-            }
-            page.inMemory = true;
-        }
-
+        // 3. Return the pointer to the start of the page's physical frame.
         return &memory[page.startIndex];
     }
 
@@ -255,20 +233,34 @@ public:
         if (page.inMemory)
             return;
 
-        if (!swapInFromBackstore(pid, virtualPageNumber))
+        // --- Start of New, Clean Logic ---
+
+        // 1. Get a frame, either by finding a free one or by evicting.
+        size_t index = findFreePage();
+        if (index == SIZE_MAX)
         {
-            size_t index = findFreePage();
-            if (index == SIZE_MAX)
-            {
-                // Implement page replacement (FIFO, LRU, etc.) here if desired
-                index = evictPage();
-            }
-            markPageAllocated(index, pageSize);
-            loadedFramesQueue.push_back(index);
-            page.startIndex = index;
-            page.inMemory = true;
-            totalPagesPagedIn++;
+            index = evictPage();
         }
+
+        // 2. Try to load data from the backing store into our new frame.
+        //    The destination is memory[index].
+        if (findAndLoadFromBackstore(pid, virtualPageNumber, &memory[index]))
+        {
+            // Data was successfully loaded from disk.
+            // We just need to mark the allocation map.
+            std::fill(allocationMap.begin() + index, allocationMap.begin() + index + pageSize, true);
+        }
+        else
+        {
+            // Page is new, so mark it as allocated (fills with '#').
+            markPageAllocated(index, pageSize);
+        }
+
+        // 3. Update all data structures. This now happens for ALL loaded pages.
+        loadedFramesQueue.push_back(index); // This is now called for every case!
+        page.startIndex = index;
+        page.inMemory = true;
+        totalPagesPagedIn++;
     }
 
     size_t getTotalFreeMemory() const
@@ -308,17 +300,12 @@ public:
         freeFrames.push_back(start);
     }
 
-    bool swapInFromBackstore(int processId, size_t pageIndex)
+    bool findAndLoadFromBackstore(int processId, size_t pageIndex, char *destination)
     {
-        auto &proc = processAllocations[processId];
-        if (pageIndex >= proc.pages.size() || proc.pages[pageIndex].inMemory)
-            return false;
-
-        size_t index = findFreePage();
-        if (index == SIZE_MAX)
-            return false;
-
         std::ifstream inFile("csopesy-backing-store.txt");
+        if (!inFile)
+            return false;
+
         std::string line;
         std::string targetPrefix = "P" + std::to_string(processId) + "_page" + std::to_string(pageIndex) + " ";
 
@@ -327,19 +314,15 @@ public:
             if (line.rfind(targetPrefix, 0) == 0)
             {
                 std::string content = line.substr(targetPrefix.length());
+                // Copy the content into the destination frame
                 for (size_t i = 0; i < pageSize && i < content.size(); ++i)
                 {
-                    memory[index + i] = content[i];
-                    allocationMap[index + i] = true;
+                    destination[i] = content[i];
                 }
-                break;
+                return true; // Found and loaded!
             }
         }
-
-        proc.pages[pageIndex].startIndex = index;
-        proc.pages[pageIndex].inMemory = true;
-        totalPagesPagedIn++;
-        return true;
+        return false; // Did not find it.
     }
 
     size_t getPageSize() const { return pageSize; }
@@ -387,11 +370,6 @@ private:
 
     size_t evictPage()
     {
-        if (loadedFramesQueue.empty())
-        {
-            // This should not happen if memory is full, but as a safeguard:
-            throw std::runtime_error("Eviction called with no pages to evict.");
-        }
 
         // 1. Select the victim frame (the first one that was loaded)
         size_t victimFrameIndex = loadedFramesQueue.front();
