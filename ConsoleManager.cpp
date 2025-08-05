@@ -283,8 +283,8 @@ bool ConsoleManager::handleCommand(const string& input) {
                 }
                 else {
                     /* 
-                    * test commands : screen -c test1 256 "PRINT(\"Hello World!\")"
-                    *                 screen -c test2 256 "DECLARE varA 10; DECLARE varB 5; ADD varA varA varB; WRITE 0x500 varA; READ varC 0x500; PRINT(\"Result: \" + varC)"
+                    * test commands : screen -c test1 4096 "PRINT(\"Hello World!\")"
+                    *                 screen -c test2 4096 "DECLARE varA 10; DECLARE varB 5; ADD varA varA varB; WRITE 0x500 varA; READ varC 0x500; PRINT(\"Result: \" + varC)"
                     */
                     std::istringstream iss(input.substr(10));
                     std::string processName, memSizeStr, instructionsBlock;
@@ -355,7 +355,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                     }
                     else {
                         // create proc
-                        pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions);
+                        pm.makeCustomDummy(processName, cpuTick, MinIns, MaxIns, BPF, memSize, instructions, maxMemPerProcess);
 
                         cout << GREEN << "Process " << processName << " created successfully with " << memSize << " bytes and " << instructions.size() << " instruction/s." << RESET << endl;
                         cout << YELLOW << "Instructions:" << RESET << endl;

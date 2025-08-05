@@ -116,18 +116,18 @@ void ProcessManager::makeDummies(int cpuTick, int minIns, int maxIns, int BPF, s
     }
 }
 
-void ProcessManager::makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> commands)
+void ProcessManager::makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> commands, size_t maxMemPerProcess)
 {
-    int numLines = 0;
     int assignedCore = -1;
     int i = 0;
 
-    auto proc = std::make_shared<Process>(name, i, assignedCore, commands.size(), 4096);
+    auto proc = std::make_shared<Process>(name, i, assignedCore, commands.size(), maxMemPerProcess);
     addProcess(proc);
     // Add custom commands
     for (const auto &cmd : commands)
     {
         proc->addCommand(cmd);
+		cout << cmd << endl; // Debugging output to see commands being added
     }
 
     proc->parse();
