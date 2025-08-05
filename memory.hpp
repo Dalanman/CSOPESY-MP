@@ -65,16 +65,26 @@ public:
             {
                 if (page.inMemory)
                 {
+                    // Return the frame to the free list
+                    freeFrames.push_back(page.startIndex);
+
+                    // --- NEW and CRITICAL ---
+                    // Remove the deallocated frame from the FIFO queue
+                    auto &queue = loadedFramesQueue;
+                    queue.erase(std::remove(queue.begin(), queue.end(), page.startIndex), queue.end());
+                    // -------------------------
+
+                    // Clear the actual memory
                     for (size_t i = page.startIndex; i < page.startIndex + pageSize; ++i)
                     {
                         memory[i] = '.';
                         allocationMap[i] = false;
                     }
-                    freeFrames.push_back(page.startIndex);
                 }
             }
             processAllocations.erase(it);
         }
+        // As discussed, we no longer remove the backing store file here.
     }
 
     std::string visualizeMemory() override
@@ -228,36 +238,32 @@ public:
             it->second.totalPages++;
         }
 
-        PageInfo &page = it->second.pages[virtualPageNumber];
+        PageInfo &page = processAllocations.at(pid).pages.at(virtualPageNumber);
 
         if (page.inMemory)
             return;
 
-        // --- Start of New, Clean Logic ---
-
-        // 1. Get a frame, either by finding a free one or by evicting.
+        // 1. Acquire a frame. It could be free or from an evicted page.
         size_t index = findFreePage();
         if (index == SIZE_MAX)
         {
             index = evictPage();
         }
 
-        // 2. Try to load data from the backing store into our new frame.
-        //    The destination is memory[index].
+        // 2. Load data into the frame if it exists on disk.
         if (findAndLoadFromBackstore(pid, virtualPageNumber, &memory[index]))
         {
-            // Data was successfully loaded from disk.
-            // We just need to mark the allocation map.
+            // If loaded from disk, just update the allocation map.
             std::fill(allocationMap.begin() + index, allocationMap.begin() + index + pageSize, true);
         }
         else
         {
-            // Page is new, so mark it as allocated (fills with '#').
+            // If it's a new page, mark it with your placeholder.
             markPageAllocated(index, pageSize);
         }
 
-        // 3. Update all data structures. This now happens for ALL loaded pages.
-        loadedFramesQueue.push_back(index); // This is now called for every case!
+        // 3. CRITICAL: Update the queue and page table for ALL cases.
+        loadedFramesQueue.push_back(index); // This MUST be here.
         page.startIndex = index;
         page.inMemory = true;
         totalPagesPagedIn++;
