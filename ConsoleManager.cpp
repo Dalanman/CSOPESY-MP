@@ -363,7 +363,7 @@ bool ConsoleManager::handleCommand(const string& input) {
                 }
             }
             else if (input == "process-smi") {
-				pm.processSMI(maxOverallMem);
+				pm.processSMI(memoryAllocator, maxOverallMem);
                 cout << "\nEnter a command: ";
             }
             else if (input == "vmstat") {

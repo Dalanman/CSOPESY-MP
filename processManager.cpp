@@ -287,7 +287,7 @@ void ProcessManager::UpdateProcessScreen()
     }
 }
 
-void ProcessManager::processSMI(int maxMemory){
+void ProcessManager::processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory){
     int busy = 0;
     int sleeping = 0, idle = 0, delayed = 0;
     int available = 0;
@@ -312,7 +312,7 @@ void ProcessManager::processSMI(int maxMemory){
 
     int utilization = (100 * (busy + delayed)) / cores;
 
-	int usedMemory = 0; // ewan ko
+    int usedMemory = maxMemory - memoryAllocator->getTotalFreeMemory();
 	int memoryUtilization = (usedMemory / maxMemory) * 100; 
 
     int used = busy + delayed;
@@ -336,7 +336,7 @@ void ProcessManager::processSMI(int maxMemory){
         if (p->getStatus() == 2)
         {
             std::cout << p->getProcessName() << "\t"
-                << p->getRunTimestamp() << std::endl;
+                << p->getMemoryRequirement() << std::endl;
         }
     }
 
@@ -351,11 +351,13 @@ void ProcessManager::vmstat(std::shared_ptr<FlatMemoryAllocator> memoryAllocator
 		busyTick += worker->getActiveTick();
     }
 
+	size_t usedMemory = maxMemory - memoryAllocator->getTotalFreeMemory();
     cout << maxMemory << " K total memory" << endl;
-    cout << 0 << " K used memory" << endl;
-    cout << 0 << " K free memory" << endl;
+    cout << usedMemory << " K used memory" << endl;
+    cout << memoryAllocator->getTotalFreeMemory() << " K free memory" << endl;
     cout << idleTick << " idle CPU ticks" << endl;
     cout << busyTick << " active CPU ticks" << endl;
+	cout << idleTick + busyTick << " total CPU ticks" << endl;
     cout << memoryAllocator->getTotalPagesPagedIn() << " pages paged in" << endl;
     cout << memoryAllocator->getTotalPagesPagedOut() << " pages paged out" << endl;
 }

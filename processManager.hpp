@@ -40,7 +40,7 @@ public:
 	void makeCustomDummy(std::string name, int cpuTick, int minIns, int maxIns, int BPF, size_t memSize, std::vector<std::string> instructions);
     
     void vmstat(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);
-    void processSMI(int maxMemory);
+    void processSMI(std::shared_ptr<FlatMemoryAllocator> memoryAllocator, int maxMemory);
 
 private:
     int cores;
